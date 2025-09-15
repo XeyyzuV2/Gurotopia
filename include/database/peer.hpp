@@ -73,6 +73,8 @@
         std::vector<short> fav{};
 
         signed gems{0};
+        long long creation_date{0}; // Unix timestamp
+        int play_time_seconds{0};
         std::array<u_short, 2zu> level{ 1, 0 }; // {level, xp} XP formula credits: https://www.growtopiagame.com/forums/member/553046-kasete
         /*
         * @brief add XP safely, this function also handles level up.
@@ -83,6 +85,8 @@
         std::array<std::string, 200zu> my_worlds{}; // @note first 200 relevant worlds locked by peer.
         
         std::deque<std::chrono::steady_clock::time_point> messages; // @note last 5 que messages sent time, this is used to check for spamming
+        std::chrono::steady_clock::time_point last_action_time{}; // @note last action time, this is used to check for spamming actions
+        std::chrono::steady_clock::time_point login_time{}; // @note transient, used to calculate session playtime
 
         std::array<Friend, 25> friends;
         

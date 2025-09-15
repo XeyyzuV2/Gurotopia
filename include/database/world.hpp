@@ -61,6 +61,7 @@
         int owner{ 00 }; // @note owner of world using peer's user id.
         std::array<int, 6zu> admin{}; // @note admins (by user id). excluding owner. (6 is a experimental amount, if increase update me if any issue occur -leeendl)
         bool _public{}; // @note checks if world is public to break/place
+        u_char lock_type{0}; // @note 0: no lock, 1: Small Lock, 2: Big Lock, 3: Huge Lock
 
         u_char visitors{0}; // @note the current number of peers in a world, excluding invisable peers
 

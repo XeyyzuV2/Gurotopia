@@ -59,14 +59,16 @@ void action::wrench(ENetEvent& event, const std::string& header)
                             "add_textbox|`oYou have `w{7}`` backpack slots.``|left|\n"
                             "add_textbox|`oCurrent world: `w{8}`` (`w{9}``, `w{10}``) (`w0`` person)````|left|\n"
                             "add_spacer|small|\n"
-                            "add_textbox|`oTotal time played is `w0.0`` hours.  This account was created `w0`` days ago.``|left|" // @todo add account creation
+                            "add_textbox|`oTotal time played is `w{11:.1f}`` hours.  This account was created `w{12}`` days ago.``|left|\n"
                             "add_spacer|small|\n"
                             "end_dialog|popup||Continue|\n"
                             "add_quick_exit|\n",
                         /*  {0}    {1}           {2}              {3}  {4}                 {5}                   {6}            {7}            */
                             netid, peer->prefix, peer->ltoken[0], lvl, peer->level.back(), 50 * (lvl * lvl + 2), ""/*effects*/, peer->slot_size, 
                         /*  {8}                         {9}                       {10}                    */
-                            peer->recent_worlds.back(), std::round(peer->pos[0]), std::round(peer->pos[1])
+                            peer->recent_worlds.back(), std::round(peer->pos[0]), std::round(peer->pos[1]),
+                        /*  {11} play time                                                        {12} account age */
+                            static_cast<float>(peer->play_time_seconds) / 3600.0f, std::chrono::duration_cast<std::chrono::days>(std::chrono::system_clock::now() - std::chrono::system_clock::from_time_t(peer->creation_date)).count()
                         ).c_str()
                     });
                 }
@@ -88,7 +90,7 @@ void action::wrench(ENetEvent& event, const std::string& header)
                             "add_spacer|small|\n"
                             "add_label|small|`1Achievements:`` 0/173|left\n"
                             "add_spacer|small|\n"
-                            "add_label|small|`1Account Age:`` 0 days|left\n" // @todo add account creation
+                            "add_label|small|`1Account Age:`` {4} days|left\n"
                             "add_spacer|small|\n"
                             "add_button|trade|`wTrade``|noflags|0|0|\n"
                             "add_button|sendpm|`wSend Message``|noflags|0|0|\n"
@@ -101,7 +103,8 @@ void action::wrench(ENetEvent& event, const std::string& header)
                             "add_spacer|small|\n"
                             "end_dialog|popup||Continue|\n"
                             "add_quick_exit|\n",
-                            netid, peer->prefix, peer->ltoken[0], lvl
+                            netid, peer->prefix, peer->ltoken[0], lvl,
+                            std::chrono::duration_cast<std::chrono::days>(std::chrono::system_clock::now() - std::chrono::system_clock::from_time_t(peer->creation_date)).count()
                         ).c_str()
                      });
                 }

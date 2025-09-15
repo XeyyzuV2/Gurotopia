@@ -1,6 +1,7 @@
 #include "pch.hpp"
 #include "on/SetClothing.hpp"
 #include "commands/punch.hpp"
+#include "tools/effects.hpp"
 #include "item_activate.hpp"
 
 void item_activate(ENetEvent& event, state state)
@@ -12,8 +13,11 @@ void item_activate(ENetEvent& event, state state)
     {
         float &cloth_type = peer->clothing[item.cloth_type];
 
-        cloth_type = (cloth_type == state.id) ? 0 : state.id;
-        peer->punch_effect = get_punch_id(state.id); // @todo
+        bool is_unequipping = (cloth_type == state.id);
+        cloth_type = is_unequipping ? 0 : state.id;
+
+        // If unequipping, reset effect. If equipping, get the new effect ID.
+        peer->punch_effect = is_unequipping ? 0 : get_punch_id(state.id);
 
         packet::create(*event.peer, true, 0, { "OnEquipNewItem", state.id });
         on::SetClothing(event); // @todo

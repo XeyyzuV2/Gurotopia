@@ -2,10 +2,24 @@
 
 #include "trash_item.hpp"
 
+#include <stdexcept>
+
 void trash_item(ENetEvent& event, const std::vector<std::string> &&pipes)
 {
-    const short id = atoi(pipes[5zu].c_str());
-    short count = atoi(pipes[8zu].c_str());
+    short id = 0;
+    short count = 0;
+    try {
+        id = std::stoi(pipes[5zu]);
+        count = std::stoi(pipes[8zu]);
+    }
+    catch (const std::invalid_argument& e) {
+        // non-numeric input
+        return;
+    }
+    catch (const std::out_of_range& e) {
+        // number is too large
+        return;
+    }
 
     for (const slot &slot : _peer[event.peer]->slots)
         if (slot.id == id)

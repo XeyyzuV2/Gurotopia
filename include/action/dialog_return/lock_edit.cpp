@@ -12,7 +12,12 @@ void lock_edit(ENetEvent& event, const std::vector<std::string> &&pipes)
     // Handle adding a player to the access list
     if (pipes[4] == "playerNetID")
     {
-        int netid_to_add = atoi(pipes[5].c_str());
+        int netid_to_add = 0;
+        try {
+            netid_to_add = std::stoi(pipes[5]);
+        }
+        catch(const std::exception& e) { return; }
+
         int userid_to_add = 0;
 
         // Find the user ID of the player being added
@@ -58,7 +63,10 @@ void lock_edit(ENetEvent& event, const std::vector<std::string> &&pipes)
 
     if (pipes[10] == "checkbox_public" && (pipes[11] == "1" || pipes[11] == "0"))
     {
-        world._public = atoi(pipes[11].c_str());
+        try {
+            world._public = std::stoi(pipes[11]);
+        }
+        catch(const std::exception& e) {} // Ignore on failure
         // @todo add public lock visuals
     }
 }

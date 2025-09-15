@@ -126,8 +126,16 @@ void action::buy(ENetEvent& event, const std::string& header)
             {
                 if (im.first == 9412) peer->slot_size += 10; // @note 9412 is the id for increase backpack sprite, but peer wont actually be given that item.
                 else peer->emplace(slot(im.first, im.second));
-                received.append(std::format("{}, ", items[im.first].raw_name)); // @todo add green text to rare items, or something cool.
+
+                const auto& item = items[im.first];
+                if (item.rarity > 50) {
+                    received.append(std::format("`2{}, ", item.raw_name));
+                }
+                else {
+                    received.append(std::format("{}, ", item.raw_name));
+                }
             }
+            if (!received.empty()) received.resize(received.length() - 2); // remove trailing ", "
 
             packet::create(*event.peer, false, 0, 
             {

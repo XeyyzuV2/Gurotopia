@@ -46,6 +46,7 @@ void gateway_edit(ENetEvent& event, const std::vector<std::string> &&pipes)
             {
                 door.dest = pipes[13];
                 door.id = pipes[15];
+                door.password = pipes[17];
                 return;
             }
         }

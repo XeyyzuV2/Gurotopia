@@ -255,9 +255,14 @@ void tile_change(ENetEvent& event, state state)
                 case type::DOOR:
                 case type::PORTAL:
                 {
-                    std::string dest, id{};
-                    for (::door& door : w->second.doors)
-                        if (door.pos == state.punch) dest = door.dest, id = door.id;
+                    std::string dest, id, password{};
+                    for (::door& door : w->second.doors) {
+                        if (door.pos == state.punch) {
+                            dest = door.dest;
+                            id = door.id;
+                            password = door.password;
+                        }
+                    }
                         
                     packet::create(*event.peer, false, 0, {
                         "OnDialogRequest",
@@ -270,11 +275,12 @@ void tile_change(ENetEvent& event, state state)
                             "add_smalltext|Leave `2WORLDNAME`` blank (:ID) to go to the door with `2ID`` in the `2Current World``.|left|\n"
                             "add_text_input|door_id|ID|{}|11|\n"
                             "add_smalltext|Set a unique `2ID`` to target this door as a Destination from another!|left|\n"
+                            "add_text_input|door_password|Password (optional)|{}|15|\n"
                             "add_checkbox|checkbox_locked|Is open to public|1\n"
                             "embed_data|tilex|{}\n"
                             "embed_data|tiley|{}\n"
                             "end_dialog|door_edit|Cancel|OK|", 
-                            item.raw_name, item.id, block.label, dest, id, state.punch[0], state.punch[1]
+                            item.raw_name, item.id, block.label, dest, id, password, state.punch[0], state.punch[1]
                         ).c_str()
                     });
                     break;

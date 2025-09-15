@@ -45,6 +45,12 @@ public:
             "_n TEXT, uid INTEGER, i INTEGER, c INTEGER, x REAL, y REAL,"
             "PRIMARY KEY (_n, uid),"
             "FOREIGN KEY (_n) REFERENCES worlds(_n)"
+        ");"
+
+        "CREATE TABLE IF NOT EXISTS doors ("
+            "_n TEXT, dest TEXT, id TEXT, password TEXT, x INTEGER, y INTEGER,"
+            "PRIMARY KEY (_n, x, y),"
+            "FOREIGN KEY (_n) REFERENCES worlds(_n)"
         ");";
         sqlite3_exec(db, sql, nullptr, nullptr, nullptr);
     }
@@ -124,6 +130,15 @@ world::world(const std::string& name)
             ));
             ifloat_uid = std::max(ifloat_uid, uid);
     }, name);
+    db.query("SELECT dest, id, password, x, y FROM doors WHERE _n = ?", [this](sqlite_stmt* stmt)
+    {
+        this->doors.emplace_back(door(
+            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)),
+            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)),
+            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)),
+            { sqlite3_column_int(stmt, 3), sqlite3_column_int(stmt, 4) }
+        ));
+    }, name);
 }
 
 world::~world() 
@@ -181,6 +196,24 @@ world::~world()
             sqlite3_bind_int(stmt, i++, item.count);
             sqlite3_bind_double(stmt, i++, item.pos[0]);
             sqlite3_bind_double(stmt, i++, item.pos[1]);
+        });
+    }
+
+    db.execute("DELETE FROM doors WHERE _n = ?", [this](auto stmt) {
+        sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
+    });
+
+    for (const auto& d : doors)
+    {
+        db.execute("INSERT INTO doors (_n, dest, id, password, x, y) VALUES (?, ?, ?, ?, ?, ?)", [&](sqlite3_stmt* stmt)
+        {
+            int i = 1;
+            sqlite3_bind_text(stmt, i++, name.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, i++, d.dest.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, i++, d.id.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, i++, d.password.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_int(stmt, i++, d.pos[0]);
+            sqlite3_bind_int(stmt, i++, d.pos[1]);
         });
     }
     

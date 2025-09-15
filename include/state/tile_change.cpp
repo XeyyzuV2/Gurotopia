@@ -23,6 +23,11 @@ void tile_change(ENetEvent& event, state state)
     try
     {
         auto &peer = _peer[event.peer];
+
+        const auto now = steady_clock::now();
+        if (now - peer->last_action_time < 200ms) return;
+        peer->last_action_time = now;
+
         auto w = worlds.find(peer->recent_worlds.back());
         if (w == worlds.end()) return;
 
@@ -59,9 +64,10 @@ void tile_change(ENetEvent& event, state state)
                 case type::MAIN_DOOR: throw std::runtime_error("(stand over and punch to use)"); break;
                 case type::LOCK:
                 {
-                    if (peer->user_id != w->second.owner) 
+                    // Full permission check: player must be the owner OR on the access list.
+                    if (peer->user_id != w->second.owner && !std::ranges::contains(w->second.admin, peer->user_id))
                     {
-                        // @todo add message saying who owns the lock.
+                        packet::create(*event.peer, false, 0, { "OnTalkBubble", peer->netid, "You don't have access to this lock.", 0u, 1u });
                         return;
                     }
                     break;
@@ -205,7 +211,8 @@ void tile_change(ENetEvent& event, state state)
             {
                 case type::LOCK: // @todo handle sl, bl, hl, builder lock, ect.
                 {
-                    if (peer->user_id == w->second.owner)
+                    // Full permission check: player must be the owner OR on the access list to wrench.
+                    if (peer->user_id == w->second.owner || std::ranges::contains(w->second.admin, peer->user_id))
                     {
                         packet::create(*event.peer, false, 0, {
                             "OnDialogRequest",

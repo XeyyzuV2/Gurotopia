@@ -281,6 +281,12 @@ void tile_update(ENetEvent &event, state state, block &block, world& w)
     // @todo add paint...
     switch (items[block.fg].type)
     {
+        case type::LOCK:
+        {
+            // Using 0x90 as the placeholder for public lock visuals, similar to ENTRANCE.
+            data[pos - 2zu] = (w._public) ? std::byte{ 0x90 } : std::byte{ 0x10 };
+            break;
+        }
         case type::ENTRANCE:
         {
             data[pos - 2zu] = (block._public) ? std::byte{ 0x90 } : std::byte{ 0x10 };

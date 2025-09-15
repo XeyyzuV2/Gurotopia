@@ -3,6 +3,7 @@
 #include "trash_item.hpp"
 
 #include <stdexcept>
+#include <cmath>
 
 void trash_item(ENetEvent& event, const std::vector<std::string> &&pipes)
 {

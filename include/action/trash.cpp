@@ -2,6 +2,8 @@
 #include "tools/string.hpp"
 #include "trash.hpp"
 
+#include <cmath>
+
 void action::trash(ENetEvent& event, const std::string& header)
 {
     std::string itemID = readch(header, '|')[4];

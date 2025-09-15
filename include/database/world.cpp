@@ -130,7 +130,7 @@ world::world(const std::string& name)
             ));
             ifloat_uid = std::max(ifloat_uid, uid);
     }, name);
-    db.query("SELECT dest, id, password, x, y FROM doors WHERE _n = ?", [this](sqlite_stmt* stmt)
+    db.query("SELECT dest, id, password, x, y FROM doors WHERE _n = ?", [this](sqlite3_stmt* stmt)
     {
         this->doors.emplace_back(door(
             reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)),

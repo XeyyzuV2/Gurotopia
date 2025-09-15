@@ -89,7 +89,13 @@ void action::join_request(ENetEvent& event, const std::string& header, const std
                         *reinterpret_cast<int*>(&data[pos]) = world.owner; pos += sizeof(int);
                         *reinterpret_cast<int*>(&data[pos]) = admins + 1; pos += sizeof(int);
                         *reinterpret_cast<int*>(&data[pos]) = -100; pos += sizeof(int);
-                        /* @todo admin list */
+
+                        for (const int admin_id : world.admin) {
+                            if (admin_id != 0) {
+                                *reinterpret_cast<int*>(&data[pos]) = admin_id;
+                                pos += sizeof(int);
+                            }
+                        }
                         break;
                     }
                     case type::MAIN_DOOR: 

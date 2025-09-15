@@ -2,11 +2,19 @@
 #include "tools/string.hpp"
 #include "drop.hpp"
 
+#include <stdexcept>
+
 void action::drop(ENetEvent& event, const std::string& header)
 {
-    std::string itemID = readch(header, '|')[4];
+    int item_id = 0;
+    try {
+        item_id = std::stoi(readch(header, '|')[4]);
+    }
+    catch (const std::exception& e) {
+        return; // Invalid input
+    }
     
-    item &item = items[atoi(itemID.c_str())];
+    item &item = items[item_id];
 
     if (item.cat == 0x80)
     {

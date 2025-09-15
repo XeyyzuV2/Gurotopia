@@ -5,14 +5,25 @@
 
 #include "peer_edit.hpp"
 
+#include <stdexcept>
+
 void peer_edit(ENetEvent& event, const std::vector<std::string> &&pipes)
 {
     const std::string name = pipes[5zu];
-    const bool status = atoi(pipes[8zu].c_str());
+    bool status = false;
+    u_char role = 0;
+    short level = 0;
+    signed gems = 0;
 
-    const u_char role = atoi(pipes[11zu].c_str());
-    const short level = atoi(pipes[13zu].c_str());
-    const signed gems = atoi(pipes[15zu].c_str());
+    try {
+        status = std::stoi(pipes[8zu]);
+        role = std::stoi(pipes[11zu]);
+        level = std::stoi(pipes[13zu]);
+        gems = std::stoi(pipes[15zu]);
+    }
+    catch (const std::exception& e) {
+        return; // Invalid input
+    }
 
     if (status) // @note online
     {

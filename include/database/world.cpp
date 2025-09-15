@@ -36,7 +36,7 @@ public:
 
         "CREATE TABLE IF NOT EXISTS blocks ("
             "_n TEXT, _p INTEGER, fg INTEGER, bg INTEGER, pub BOOLEAN, tog BOOLEAN, tick INTEGER, l TEXT,"
-            "water BOOLEAN, glue BOOLEAN, fire BOOLEAN,"
+            "water BOOLEAN, glue BOOLEAN, fire BOOLEAN, paint INTEGER,"
             "PRIMARY KEY (_n, _p),"
             "FOREIGN KEY (_n) REFERENCES worlds(_n)"
         ");"
@@ -44,6 +44,12 @@ public:
         "CREATE TABLE IF NOT EXISTS ifloats ("
             "_n TEXT, uid INTEGER, i INTEGER, c INTEGER, x REAL, y REAL,"
             "PRIMARY KEY (_n, uid),"
+            "FOREIGN KEY (_n) REFERENCES worlds(_n)"
+        ");"
+
+        "CREATE TABLE IF NOT EXISTS doors ("
+            "_n TEXT, dest TEXT, id TEXT, password TEXT, x INTEGER, y INTEGER,"
+            "PRIMARY KEY (_n, x, y),"
             "FOREIGN KEY (_n) REFERENCES worlds(_n)"
         ");";
         sqlite3_exec(db, sql, nullptr, nullptr, nullptr);
@@ -98,7 +104,7 @@ world::world(const std::string& name)
     }, name);
 
     blocks.resize(6000);
-    db.query("SELECT _p, fg, bg, pub, tog, tick, l FROM blocks WHERE _n = ?", [this](sqlite3_stmt* stmt) 
+    db.query("SELECT _p, fg, bg, pub, tog, tick, l, paint FROM blocks WHERE _n = ?", [this](sqlite3_stmt* stmt)
     {
             int pos = sqlite3_column_int(stmt, 0);
             blocks[pos] = block(
@@ -107,7 +113,8 @@ world::world(const std::string& name)
                 sqlite3_column_int(stmt, 3),
                 sqlite3_column_int(stmt, 4),
                 std::chrono::steady_clock::time_point(std::chrono::seconds(sqlite3_column_int(stmt, 5))),
-                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6))
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6)),
+                static_cast<u_char>(sqlite3_column_int(stmt, 7))
             );
     }, name);
      db.query("SELECT uid, i, c, x, y FROM ifloats WHERE _n = ?", [this](sqlite3_stmt* stmt) 
@@ -122,6 +129,15 @@ world::world(const std::string& name)
                 }
             ));
             ifloat_uid = std::max(ifloat_uid, uid);
+    }, name);
+    db.query("SELECT dest, id, password, x, y FROM doors WHERE _n = ?", [this](sqlite_stmt* stmt)
+    {
+        this->doors.emplace_back(door(
+            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)),
+            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)),
+            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)),
+            { sqlite3_column_int(stmt, 3), sqlite3_column_int(stmt, 4) }
+        ));
     }, name);
 }
 
@@ -145,7 +161,7 @@ world::~world()
     
     for (int pos = 0; pos < blocks.size(); pos++) {
         const block &b = blocks[pos];
-        db.execute("INSERT INTO blocks (_n, _p, fg, bg, pub, tog, tick, l, water, glue, fire) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [this, &b, &pos](sqlite3_stmt* stmt) 
+        db.execute("INSERT INTO blocks (_n, _p, fg, bg, pub, tog, tick, l, water, glue, fire, paint) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [this, &b, &pos](sqlite3_stmt* stmt)
         {
             int i = 1;
             sqlite3_bind_text(stmt, i++, name.c_str(), -1, SQLITE_STATIC);
@@ -161,6 +177,7 @@ world::~world()
             sqlite3_bind_int(stmt, i++, b.water);
             sqlite3_bind_int(stmt, i++, b.glue);
             sqlite3_bind_int(stmt, i++, b.fire);
+            sqlite3_bind_int(stmt, i++, b.paint_color);
         });
     }
 
@@ -179,6 +196,24 @@ world::~world()
             sqlite3_bind_int(stmt, i++, item.count);
             sqlite3_bind_double(stmt, i++, item.pos[0]);
             sqlite3_bind_double(stmt, i++, item.pos[1]);
+        });
+    }
+
+    db.execute("DELETE FROM doors WHERE _n = ?", [this](auto stmt) {
+        sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
+    });
+
+    for (const auto& d : doors)
+    {
+        db.execute("INSERT INTO doors (_n, dest, id, password, x, y) VALUES (?, ?, ?, ?, ?, ?)", [&](sqlite3_stmt* stmt)
+        {
+            int i = 1;
+            sqlite3_bind_text(stmt, i++, name.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, i++, d.dest.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, i++, d.id.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, i++, d.password.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_int(stmt, i++, d.pos[0]);
+            sqlite3_bind_int(stmt, i++, d.pos[1]);
         });
     }
     
@@ -278,9 +313,20 @@ void tile_update(ENetEvent &event, state state, block &block, world& w)
     if (block.water) data[pos - 1zu] |= std::byte{ 0x04 };
     if (block.glue)  data[pos - 1zu] |= std::byte{ 0x08 };
     if (block.fire)  data[pos - 1zu] |= std::byte{ 0x10 };
-    // @todo add paint...
+
+    // @todo: Implement visual packet data for painted blocks.
+    // This requires finding the correct packet flag or extra data format
+    // to represent the block.paint_color value for the client.
+    // if (block.paint_color > 0) { /* add paint data to packet here */ }
+
     switch (items[block.fg].type)
     {
+        case type::LOCK:
+        {
+            // Using 0x90 as the placeholder for public lock visuals, similar to ENTRANCE.
+            data[pos - 2zu] = (w._public) ? std::byte{ 0x90 } : std::byte{ 0x10 };
+            break;
+        }
         case type::ENTRANCE:
         {
             data[pos - 2zu] = (block._public) ? std::byte{ 0x90 } : std::byte{ 0x10 };

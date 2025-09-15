@@ -60,7 +60,7 @@ public:
     void create_tables() 
     {
         const char* sql = 
-        "CREATE TABLE IF NOT EXISTS peers (_n TEXT PRIMARY KEY, role INTEGER, gems INTEGER, lvl INTEGER, xp INTEGER);"
+        "CREATE TABLE IF NOT EXISTS peers (_n TEXT PRIMARY KEY, role INTEGER, gems INTEGER, lvl INTEGER, xp INTEGER, creation_date INTEGER, play_time_seconds INTEGER);"
         "CREATE TABLE IF NOT EXISTS slots (_n TEXT, i INTEGER, c INTEGER, FOREIGN KEY(_n) REFERENCES peers(_n));";
 
         sqlite3_exec(db, sql, nullptr, nullptr, nullptr);
@@ -108,12 +108,14 @@ peer& peer::read(const std::string& name)
 {
     peer_db db;
     
-    db.query("SELECT role, gems, lvl, xp FROM peers WHERE _n = ?", [this](sqlite3_stmt* stmt) 
+    db.query("SELECT role, gems, lvl, xp, creation_date, play_time_seconds FROM peers WHERE _n = ?", [this](sqlite3_stmt* stmt)
     {
         this->role = static_cast<char>(sqlite3_column_int(stmt, 0));
         this->gems = sqlite3_column_int(stmt, 1);
         this->level[0] = static_cast<u_short>(sqlite3_column_int(stmt, 2));
         this->level[1] = static_cast<u_short>(sqlite3_column_int(stmt, 3));
+        this->creation_date = sqlite3_column_int64(stmt, 4);
+        this->play_time_seconds = sqlite3_column_int(stmt, 5);
     }, name);
     
     db.query("SELECT i, c FROM slots WHERE _n = ?", [this](sqlite3_stmt* stmt) 
@@ -124,6 +126,16 @@ peer& peer::read(const std::string& name)
         );
     }, name);
     
+    // If creation_date is 0, this is a new player. Set their creation date to now.
+    if (this->creation_date == 0) {
+        this->creation_date = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()
+        ).count();
+    }
+
+    // Record the login time for this session
+    this->login_time = std::chrono::steady_clock::now();
+
     return *this;
 }
 
@@ -134,13 +146,15 @@ peer::~peer()
     peer_db db;
     db.begin_transaction();
     
-    db.execute("REPLACE INTO peers (_n, role, gems, lvl, xp) VALUES (?, ?, ?, ?, ?)", [this](sqlite3_stmt* stmt) 
+    db.execute("REPLACE INTO peers (_n, role, gems, lvl, xp, creation_date, play_time_seconds) VALUES (?, ?, ?, ?, ?, ?, ?)", [this](sqlite3_stmt* stmt)
     {
         sqlite3_bind_text(stmt, 1, this->ltoken[0].c_str(), -1, SQLITE_STATIC);
         sqlite3_bind_int(stmt, 2, this->role);
         sqlite3_bind_int(stmt, 3, this->gems);
         sqlite3_bind_int(stmt, 4, this->level[0]);
         sqlite3_bind_int(stmt, 5, this->level[1]);
+        sqlite3_bind_int64(stmt, 6, this->creation_date);
+        sqlite3_bind_int(stmt, 7, this->play_time_seconds);
     });
     
     db.execute("DELETE FROM slots WHERE _n = ?", [this](auto stmt) {

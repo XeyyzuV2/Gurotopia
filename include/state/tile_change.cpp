@@ -23,6 +23,11 @@ void tile_change(ENetEvent& event, state state)
     try
     {
         auto &peer = _peer[event.peer];
+
+        const auto now = steady_clock::now();
+        if (now - peer->last_action_time < 200ms) return;
+        peer->last_action_time = now;
+
         auto w = worlds.find(peer->recent_worlds.back());
         if (w == worlds.end()) return;
 
@@ -59,9 +64,10 @@ void tile_change(ENetEvent& event, state state)
                 case type::MAIN_DOOR: throw std::runtime_error("(stand over and punch to use)"); break;
                 case type::LOCK:
                 {
-                    if (peer->user_id != w->second.owner) 
+                    // Full permission check: player must be the owner OR on the access list.
+                    if (peer->user_id != w->second.owner && !std::ranges::contains(w->second.admin, peer->user_id))
                     {
-                        // @todo add message saying who owns the lock.
+                        packet::create(*event.peer, false, 0, { "OnTalkBubble", peer->netid, "You don't have access to this lock.", 0u, 1u });
                         return;
                     }
                     break;
@@ -113,7 +119,9 @@ void tile_change(ENetEvent& event, state state)
             if (item.type == type::LOCK) 
             {
                 peer->prefix.front() = 'w';
-                w->second.owner = 0; // @todo handle sl, bl, hl
+                w->second.owner = 0;
+                w->second.lock_type = 0; // Reset lock type
+                w->second.admin.fill(0); // Clear admin list
             }
 
             if (item.cat == 0x02) // pick up (item goes back in your inventory)
@@ -124,7 +132,13 @@ void tile_change(ENetEvent& event, state state)
             else // normal break (drop gem, seed, block & give XP)
             {
 
-                if (ransuu[{0, 9}] <= 1) im.emplace_back(112, 1); // @todo get real growtopia gem drop amount.
+                // Gem drop logic based on rarity
+                if (ransuu[{0, 99}] < items[remember_id].rarity * 4) // Rarity * 4% chance to drop gems
+                {
+                    int gem_amount = 1 + ransuu[{0, items[remember_id].rarity / 4}]; // Amount based on rarity
+                    if (gem_amount > 0) im.emplace_back(112, gem_amount);
+                }
+
                 if (item.type != type::SEED)
                 {
                     if (ransuu[{0, 17}] <= 1) im.emplace_back(remember_id, 1);
@@ -205,7 +219,8 @@ void tile_change(ENetEvent& event, state state)
             {
                 case type::LOCK: // @todo handle sl, bl, hl, builder lock, ect.
                 {
-                    if (peer->user_id == w->second.owner)
+                    // Full permission check: player must be the owner OR on the access list to wrench.
+                    if (peer->user_id == w->second.owner || std::ranges::contains(w->second.admin, peer->user_id))
                     {
                         packet::create(*event.peer, false, 0, {
                             "OnDialogRequest",
@@ -240,9 +255,14 @@ void tile_change(ENetEvent& event, state state)
                 case type::DOOR:
                 case type::PORTAL:
                 {
-                    std::string dest, id{};
-                    for (::door& door : w->second.doors)
-                        if (door.pos == state.punch) dest = door.dest, id = door.id;
+                    std::string dest, id, password{};
+                    for (::door& door : w->second.doors) {
+                        if (door.pos == state.punch) {
+                            dest = door.dest;
+                            id = door.id;
+                            password = door.password;
+                        }
+                    }
                         
                     packet::create(*event.peer, false, 0, {
                         "OnDialogRequest",
@@ -255,11 +275,12 @@ void tile_change(ENetEvent& event, state state)
                             "add_smalltext|Leave `2WORLDNAME`` blank (:ID) to go to the door with `2ID`` in the `2Current World``.|left|\n"
                             "add_text_input|door_id|ID|{}|11|\n"
                             "add_smalltext|Set a unique `2ID`` to target this door as a Destination from another!|left|\n"
+                            "add_text_input|door_password|Password (optional)|{}|15|\n"
                             "add_checkbox|checkbox_locked|Is open to public|1\n"
                             "embed_data|tilex|{}\n"
                             "embed_data|tiley|{}\n"
                             "end_dialog|door_edit|Cancel|OK|", 
-                            item.raw_name, item.id, block.label, dest, id, state.punch[0], state.punch[1]
+                            item.raw_name, item.id, block.label, dest, id, password, state.punch[0], state.punch[1]
                         ).c_str()
                     });
                     break;
@@ -304,6 +325,14 @@ void tile_change(ENetEvent& event, state state)
                 {
                     if (!w->second.owner)
                     {
+                        switch (state.id)
+                        {
+                            case 202: w->second.lock_type = 1; break; // Small Lock
+                            case 204: w->second.lock_type = 2; break; // Big Lock
+                            case 206: w->second.lock_type = 3; break; // Huge Lock
+                            default:  w->second.lock_type = 1; break; // Default to Small Lock
+                        }
+
                         w->second.owner = peer->user_id;
                         if (!peer->role) peer->prefix.front() = '2';
                         state.type = 0x0f;
@@ -368,6 +397,26 @@ void tile_change(ENetEvent& event, state state)
         }
         if (state.netid != w->second.owner) state.netid = peer->netid;
         state_visuals(event, std::move(state)); // finished.
+    }
+    else if (state.id >= 3478 && state.id <= 3493) // @note Paint Buckets
+    {
+        u_char paint_color = 0;
+        switch(state.id) {
+            case 3478: paint_color = 1; break; // Red
+            case 3480: paint_color = 2; break; // Yellow
+            case 3482: paint_color = 3; break; // Green
+            case 3484: paint_color = 4; break; // Aqua
+            case 3486: paint_color = 5; break; // Blue
+            case 3488: paint_color = 6; break; // Purple
+            case 3490: paint_color = 7; break; // Charcoal
+            case 3492: paint_color = 8; break; // Varnish
+            default: return; // Not a valid paint bucket
+        }
+
+        block.paint_color = paint_color;
+        peer->emplace(slot(state.id, -1));
+        inventory_visuals(event);
+        tile_update(event, std::move(state), block, w->second);
     }
     catch (const std::exception& exc)
     {

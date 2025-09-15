@@ -2,12 +2,21 @@
 
 #include "drop_item.hpp"
 
+#include <stdexcept>
+
 void drop_item(ENetEvent& event, const std::vector<std::string> &&pipes)
 {
     auto &peer = _peer[event.peer];
 
-    const short id = atoi(pipes[5zu].c_str());
-    short count = atoi(pipes[8zu].c_str());
+    short id = 0;
+    short count = 0;
+    try {
+        id = std::stoi(pipes[5zu]);
+        count = std::stoi(pipes[8zu]);
+    }
+    catch (const std::exception& e) {
+        return; // Invalid input
+    }
 
     for (const slot &slot : _peer[event.peer]->slots)
         if (slot.id == id)

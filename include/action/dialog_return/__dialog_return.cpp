@@ -10,6 +10,7 @@
 #include "create_blast.hpp"
 #include "socialportal.hpp"
 #include "peer_edit.hpp"
+#include "door_password_prompt.hpp"
 
 #include "__dialog_return.hpp"
 
@@ -31,4 +32,5 @@ std::unordered_map<std::string, std::function<void(ENetEvent&, const std::vector
 
     {"create_blast", std::bind(&create_blast, std::placeholders::_1, std::placeholders::_2)},
     {"socialportal", std::bind(&socialportal, std::placeholders::_1, std::placeholders::_2)},
+    {"door_password_prompt", std::bind(&door_password_prompt, std::placeholders::_1, std::placeholders::_2)},
 };

@@ -2,18 +2,35 @@
 
 #include "gateway_edit.hpp"
 
+#include <stdexcept>
+
 void gateway_edit(ENetEvent& event, const std::vector<std::string> &&pipes)
 {
-    const short tilex = atoi(pipes[5zu].c_str());
-    const short tiley = atoi(pipes[8zu].c_str());
+    short tilex = 0;
+    short tiley = 0;
+
+    try {
+        tilex = std::stoi(pipes[5zu]);
+        tiley = std::stoi(pipes[8zu]);
+    }
+    catch (const std::exception& e) {
+        return; // Invalid input
+    }
 
     auto it = worlds.find(_peer[event.peer]->recent_worlds.back());
     if (it == worlds.end()) return;
 
     block &block = it->second.blocks[cord(tilex, tiley)];
 
-    if (pipes[3zu] == "door_edit" || pipes[3zu] == "sign_edit") block.label = pipes[11zu];
-    else if (pipes[3zu] == "gateway_edit") block._public = stoi(pipes[11zu]);
+    if (pipes[3zu] == "door_edit" || pipes[3zu] == "sign_edit") {
+        block.label = pipes[11zu];
+    }
+    else if (pipes[3zu] == "gateway_edit") {
+        try {
+            block._public = std::stoi(pipes[11zu]);
+        }
+        catch(const std::exception& e) {} // On failure, do nothing.
+    }
 
     tile_update(event, {
         .id = block.fg,
@@ -29,6 +46,7 @@ void gateway_edit(ENetEvent& event, const std::vector<std::string> &&pipes)
             {
                 door.dest = pipes[13];
                 door.id = pipes[15];
+                door.password = pipes[17];
                 return;
             }
         }

@@ -5,9 +5,18 @@
 
 #include "create_blast.hpp"
 
+#include <stdexcept>
+
 void create_blast(ENetEvent& event, const std::vector<std::string> &&pipes)
 {
-    const u_short id = atoi(pipes[5zu].c_str());
+    u_short id = 0;
+    try {
+        id = std::stoi(pipes[5zu]);
+    }
+    catch(const std::exception& e) {
+        return; // Invalid input
+    }
+
     std::string world_name = pipes[8zu];
     
     std::for_each(world_name.begin(), world_name.end(), [](char& c) { c = std::toupper(c); });

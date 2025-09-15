@@ -85,7 +85,7 @@
         std::array<std::string, 200zu> my_worlds{}; // @note first 200 relevant worlds locked by peer.
         
         std::deque<std::chrono::steady_clock::time_point> messages; // @note last 5 que messages sent time, this is used to check for spamming
-        std::chrono::steady_clock::time_point last_action_time{}; // @note last action time, this is used to check for spamming actions        
+        std::chrono::steady_clock::time_point last_action_time{}; // @note last action time, this is used to check for spamming actions
         std::chrono::steady_clock::time_point login_time{}; // @note transient, used to calculate session playtime
 
         std::array<Friend, 25> friends;

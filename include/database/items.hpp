@@ -176,7 +176,7 @@
         u_char type{};
         std::string raw_name{}; /* the exact name of the item including uppercases */
         std::byte collision{};
-        short hits{}; // @todo make it unsigned.
+        unsigned short hits{};
         int hit_reset{}; // @note in seconds
         u_short cloth_type{clothing::none}; /* use clothing:: if you are unsure of the order */
         short rarity{};

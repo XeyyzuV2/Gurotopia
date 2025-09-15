@@ -7,6 +7,13 @@ void action::setSkin(ENetEvent& event, const std::string& header)
 {
     std::vector<std::string> pipes = readch(header, '|');
 
-    _peer[event.peer]->skin_color = stoul(pipes[3zu]); // @todo handle non-numrials
+    try {
+        _peer[event.peer]->skin_color = std::stoul(pipes[3zu]);
+    }
+    catch (const std::exception& e) {
+        // Invalid input from client (not a number). Ignore to prevent crash.
+        return;
+    }
+
     on::SetClothing(event);
 }

@@ -67,7 +67,11 @@ void action::join_request(ENetEvent& event, const std::string& header, const std
                 if (block.water) data[pos - 1zu] |= std::byte{ 0x04 };
                 if (block.glue)  data[pos - 1zu] |= std::byte{ 0x08 };
                 if (block.fire)  data[pos - 1zu] |= std::byte{ 0x10 };
-                // @todo add paint...
+
+                // @todo: Serialize block.paint_color into the packet here.
+                // The client needs this information to render painted blocks correctly
+                // when the world is first loaded. The exact packing format is unknown.
+
                 switch (items[block.fg].type)
                 {
                     case type::FOREGROUND: 

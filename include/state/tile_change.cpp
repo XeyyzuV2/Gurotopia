@@ -392,6 +392,26 @@ void tile_change(ENetEvent& event, state state)
         if (state.netid != w->second.owner) state.netid = peer->netid;
         state_visuals(event, std::move(state)); // finished.
     }
+    else if (state.id >= 3478 && state.id <= 3493) // @note Paint Buckets
+    {
+        u_char paint_color = 0;
+        switch(state.id) {
+            case 3478: paint_color = 1; break; // Red
+            case 3480: paint_color = 2; break; // Yellow
+            case 3482: paint_color = 3; break; // Green
+            case 3484: paint_color = 4; break; // Aqua
+            case 3486: paint_color = 5; break; // Blue
+            case 3488: paint_color = 6; break; // Purple
+            case 3490: paint_color = 7; break; // Charcoal
+            case 3492: paint_color = 8; break; // Varnish
+            default: return; // Not a valid paint bucket
+        }
+
+        block.paint_color = paint_color;
+        peer->emplace(slot(state.id, -1));
+        inventory_visuals(event);
+        tile_update(event, std::move(state), block, w->second);
+    }
     catch (const std::exception& exc)
     {
         if (exc.what() && *exc.what()) 

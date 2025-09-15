@@ -8,8 +8,8 @@
         block(
             short _fg = 0, short _bg = 0, 
             bool __public = false, bool _toggled = false, std::chrono::steady_clock::time_point _tick = std::chrono::steady_clock::time_point(),
-            std::string _label = ""
-        ) : fg(_fg), bg(_bg), _public(__public), toggled(_toggled), tick(_tick), label(_label) {}
+            std::string _label = "", u_char _paint = 0
+        ) : fg(_fg), bg(_bg), _public(__public), toggled(_toggled), tick(_tick), label(_label), paint_color(_paint) {}
         short fg{0}, bg{0};
         
         bool _public{}; // @note tile can be interacted by anyone in the world
@@ -19,6 +19,7 @@
         bool water{};
         bool glue{};
         bool fire{};
+        u_char paint_color{0};
 
         std::array<int, 2zu> hits{0, 0}; // @note fg, bg
     };

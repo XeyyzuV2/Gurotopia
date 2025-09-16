@@ -45,6 +45,17 @@ public:
             "_n TEXT, uid INTEGER, i INTEGER, c INTEGER, x REAL, y REAL,"
             "PRIMARY KEY (_n, uid),"
             "FOREIGN KEY (_n) REFERENCES worlds(_n)"
+        ");"
+
+        "CREATE TABLE IF NOT EXISTS locks ("
+            "_n TEXT, id INTEGER, owner INTEGER, px INTEGER, py INTEGER,"
+            "PRIMARY KEY (_n, px, py),"
+            "FOREIGN KEY (_n) REFERENCES worlds(_n)"
+        ");"
+
+        "CREATE TABLE IF NOT EXISTS lock_access ("
+            "_n TEXT, px INTEGER, py INTEGER, user INTEGER,"
+            "FOREIGN KEY (_n) REFERENCES worlds(_n)"
         ");";
         sqlite3_exec(db, sql, nullptr, nullptr, nullptr);
     }
@@ -57,6 +68,24 @@ public:
         {
             binder(stmt);
             sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
+        }
+    }
+
+    template<typename F>
+    void query(const char* sql, F &&processor, const std::string &name, int px, int py)
+    {
+        sqlite3_stmt* stmt;
+        if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK)
+        {
+            sqlite3_bind(stmt, 1, name);
+            sqlite3_bind(stmt, 2, px);
+            sqlite3_bind(stmt, 3, py);
+
+            while (sqlite3_step(stmt) == SQLITE_ROW)
+            {
+                processor(stmt);
+            }
             sqlite3_finalize(stmt);
         }
     }
@@ -123,6 +152,23 @@ world::world(const std::string& name)
             ));
             ifloat_uid = std::max(ifloat_uid, uid);
     }, name);
+
+    db.query("SELECT id, owner, px, py FROM locks WHERE _n = ?", [this, &db, &name](sqlite3_stmt* stmt)
+    {
+        int pos_x = sqlite3_column_int(stmt, 2);
+        int pos_y = sqlite3_column_int(stmt, 3);
+        this->locks.emplace_back(
+            sqlite3_column_int(stmt, 0),
+            sqlite3_column_int(stmt, 1),
+            std::array<int, 2zu>{pos_x, pos_y}
+        );
+
+        // Now, for each lock, query its access list
+        db.query("SELECT user FROM lock_access WHERE _n = ? AND px = ? AND py = ?", [this](sqlite3_stmt* access_stmt)
+        {
+            this->locks.back().access_list.push_back(sqlite3_column_int(access_stmt, 0));
+        }, name, pos_x, pos_y);
+    }, name);
 }
 
 world::~world() 
@@ -180,6 +226,38 @@ world::~world()
             sqlite3_bind_double(stmt, i++, item.pos[0]);
             sqlite3_bind_double(stmt, i++, item.pos[1]);
         });
+    }
+
+    db.execute("DELETE FROM locks WHERE _n = ?", [this](auto stmt) {
+        sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
+    });
+    db.execute("DELETE FROM lock_access WHERE _n = ?", [this](auto stmt) {
+        sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
+    });
+
+    for (const auto& lock : locks)
+    {
+        db.execute("INSERT INTO locks (_n, id, owner, px, py) VALUES (?, ?, ?, ?, ?)", [&](sqlite3_stmt* stmt)
+        {
+            int i = 1;
+            sqlite3_bind_text(stmt, i++, name.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_int(stmt, i++, lock.id);
+            sqlite3_bind_int(stmt, i++, lock.owner_id);
+            sqlite3_bind_int(stmt, i++, lock.pos[0]);
+            sqlite3_bind_int(stmt, i++, lock.pos[1]);
+        });
+
+        for (const auto& user_id : lock.access_list)
+        {
+            db.execute("INSERT INTO lock_access (_n, px, py, user) VALUES (?, ?, ?, ?)", [&](sqlite3_stmt* stmt)
+            {
+                int i = 1;
+                sqlite3_bind_text(stmt, i++, name.c_str(), -1, SQLITE_STATIC);
+                sqlite3_bind_int(stmt, i++, lock.pos[0]);
+                sqlite3_bind_int(stmt, i++, lock.pos[1]);
+                sqlite3_bind_int(stmt, i++, user_id);
+            });
+        }
     }
     
     db.commit();

@@ -26,8 +26,49 @@ void tile_change(ENetEvent& event, state state)
         auto w = worlds.find(peer->recent_worlds.back());
         if (w == worlds.end()) return;
 
-        if ((w->second.owner && !w->second._public && !peer->role) &&
-            (peer->user_id != w->second.owner && !std::ranges::contains(w->second.admin, peer->user_id))) return;
+        // New, more sophisticated permission check
+        if (w->second.owner) // World is World-Locked
+        {
+            if (!w->second._public && !peer->role && (peer->user_id != w->second.owner && !std::ranges::contains(w->second.admin, peer->user_id)))
+            {
+                // For punching, we just return. For placing, we might throw.
+                if (state.id == 18) return;
+                else throw std::runtime_error("World is locked by " + std::to_string(w->second.owner));
+            }
+        }
+        else if (!w->second.locks.empty()) // World is not World-Locked, but has other locks
+        {
+            bool is_protected = false;
+            for (const auto& lock : w->second.locks)
+            {
+                int radius = 0;
+                switch (lock.id)
+                {
+                    case 202: radius = 1; break; // 3x3 area
+                    case 204: radius = 3; break; // 7x7 area
+                    case 206: radius = 7; break; // 14x14 area, close enough to 200
+                    default: continue; // Not a small/big/huge lock
+                }
+
+                // Check if the punched tile is within the lock's area
+                if (state.punch[0] >= lock.pos[0] - radius && state.punch[0] <= lock.pos[0] + radius &&
+                    state.punch[1] >= lock.pos[1] - radius && state.punch[1] <= lock.pos[1] + radius)
+                {
+                    is_protected = true;
+                    // Check for access
+                    if (peer->user_id != lock.owner_id && !std::ranges::contains(lock.access_list, peer->user_id))
+                    {
+                        if (state.id == 18) return; // Fail silently for punches
+                        else throw std::runtime_error("This area is locked.");
+                    }
+                    else // Player has access
+                    {
+                        is_protected = false; // Treat as unprotected for this player
+                        break; // Player has access to this lock, no need to check others
+                    }
+                }
+            }
+        }
 
         block &block = w->second.blocks[cord(state.punch[0], state.punch[1])];
         item &item = (state.id != 32 && state.id != 18) ? items[state.id] : (block.fg != 0) ? items[block.fg] : items[block.bg];
@@ -110,10 +151,21 @@ void tile_change(ENetEvent& event, state state)
             else return;
             block.label = ""; // @todo
             block.toggled = false; // @todo
-            if (item.type == type::LOCK) 
+            if (item.type == type::LOCK)
             {
+                // Remove the specific lock from the vector
+                std::erase_if(w->second.locks, [&](const Lock& lock) {
+                    return lock.pos[0] == state.punch[0] && lock.pos[1] == state.punch[1];
+                });
+
+                // If it was a world lock, also reset the world owner
+                if (remember_id == 242)
+                {
+                    w->second.owner = 0;
+                }
+                // Reset player prefix if they are no longer an owner of anything?
+                // For now, let's keep it simple. The prefix logic might need a bigger rework.
                 peer->prefix.front() = 'w';
-                w->second.owner = 0; // @todo handle sl, bl, hl
             }
 
             if (item.cat == 0x02) // pick up (item goes back in your inventory)
@@ -314,9 +366,14 @@ void tile_change(ENetEvent& event, state state)
             {
                 case type::LOCK:
                 {
-                    if (!w->second.owner)
+                    if (item.id == 242) // Placing a World Lock
                     {
+                        if (w->second.owner) throw std::runtime_error("Only one `$World Lock`` can be placed in a world.");
+                        if (!w->second.locks.empty()) throw std::runtime_error("All other locks must be removed before placing a `SWorld Lock`.");
+
                         w->second.owner = peer->user_id;
+                        w->second.locks.emplace_back(item.id, peer->user_id, state.punch);
+
                         if (!peer->role) peer->prefix.front() = '2';
                         state.type = 0x0f;
                         state.netid = w->second.owner;
@@ -330,20 +387,16 @@ void tile_change(ENetEvent& event, state state)
                         peers(event, PEER_SAME_WORLD, [&](ENetPeer& p) 
                         {
                             std::string placed_message{ std::format("`5[```w{}`` has been `$World Locked`` by {}`5]``", w->first, peer->ltoken[0]) };
-                            packet::create(p, false, 0, {
-                                "OnTalkBubble", 
-                                peer->netid,
-                                placed_message.c_str(),
-                                0u
-                            });
-                            packet::create(p, false, 0, {
-                                "OnConsoleMessage",
-                                placed_message.c_str()
-                            });
+                            packet::create(p, false, 0, { "OnTalkBubble", peer->netid, placed_message.c_str(), 0u });
+                            packet::create(p, false, 0, { "OnConsoleMessage", placed_message.c_str() });
                         });
                         on::NameChanged(event);
                     }
-                    else throw std::runtime_error("Only one `$World Lock`` can be placed in a world, you'd have to remove the other one first.");
+                    else // Placing a Small, Big, or Huge Lock
+                    {
+                        if (w->second.owner) throw std::runtime_error("You can't place this lock in a `SWorld Locked`` world.");
+                        w->second.locks.emplace_back(item.id, peer->user_id, state.punch);
+                    }
                     break;
                 }
                 case type::SEED:

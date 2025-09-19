@@ -194,6 +194,7 @@ void tile_change(ENetEvent& event, state state)
                     }
                 }
 
+              
                 for (std::pair<short, short> &i : im)
                 {
                     if (i.first == 112) // Gem ID

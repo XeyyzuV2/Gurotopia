@@ -61,7 +61,7 @@ public:
     {
         const char* sql = 
         "CREATE TABLE IF NOT EXISTS peers (_n TEXT PRIMARY KEY, role INTEGER, gems INTEGER, lvl INTEGER, xp INTEGER);"
-        "CREATE TABLE IF NOT EXISTS slots (_n TEXT, i INTEGER, c INTEGER, FOREIGN KEY(_n) REFERENCES peers(_n));";
+        "CREATE TABLE IF NOT EXISTS slots (_n TEXT, i INTEGER, c INTEGER, PRIMARY KEY(_n, i), FOREIGN KEY(_n) REFERENCES peers(_n));";
 
         sqlite3_exec(db, sql, nullptr, nullptr, nullptr);
     }
@@ -136,26 +136,35 @@ peer::~peer()
     
     db.execute("REPLACE INTO peers (_n, role, gems, lvl, xp) VALUES (?, ?, ?, ?, ?)", [this](sqlite3_stmt* stmt) 
     {
-        sqlite3_bind_text(stmt, 1, this->ltoken[0].c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 1, this->ltoken[0].c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(stmt, 2, this->role);
         sqlite3_bind_int(stmt, 3, this->gems);
         sqlite3_bind_int(stmt, 4, this->level[0]);
         sqlite3_bind_int(stmt, 5, this->level[1]);
     });
     
-    db.execute("DELETE FROM slots WHERE _n = ?", [this](auto stmt) {
-        sqlite3_bind_text(stmt, 1, this->ltoken[0].c_str(), -1, SQLITE_STATIC);
-    });
-    
+    // Efficiently update inventory using REPLACE
     for (const slot &s : this->slots) 
     {
-        if ((s.id == 18 || s.id == 32) || s.count <= 0) continue;
-        db.execute("INSERT INTO slots (_n, i, c) VALUES (?, ?, ?)", [this, &s](sqlite3_stmt* stmt) 
+        if (s.id == 18 || s.id == 32) continue; // fists and wrenches are not saved
+
+        if (s.count <= 0)
         {
-            sqlite3_bind_text(stmt, 1, this->ltoken[0].c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_int(stmt, 2, s.id);
-            sqlite3_bind_int(stmt, 3, s.count);
-        });
+            db.execute("DELETE FROM slots WHERE _n = ? AND i = ?", [this, &s](sqlite3_stmt* stmt)
+            {
+                sqlite3_bind_text(stmt, 1, this->ltoken[0].c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_int(stmt, 2, s.id);
+            });
+        }
+        else
+        {
+            db.execute("REPLACE INTO slots (_n, i, c) VALUES (?, ?, ?)", [this, &s](sqlite3_stmt* stmt)
+            {
+                sqlite3_bind_text(stmt, 1, this->ltoken[0].c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_int(stmt, 2, s.id);
+                sqlite3_bind_int(stmt, 3, s.count);
+            });
+        }
     }
     db.commit();
 }

@@ -21,7 +21,7 @@ private:
     }
     void sqlite3_bind(sqlite3_stmt* stmt, int index, const std::string& value) 
     {
-        sqlite3_bind_text(stmt, index, value.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, index, value.c_str(), -1, SQLITE_TRANSIENT);
     }
 public:
     world_db() {
@@ -55,6 +55,7 @@ public:
 
         "CREATE TABLE IF NOT EXISTS lock_access ("
             "_n TEXT, px INTEGER, py INTEGER, user INTEGER,"
+            "PRIMARY KEY (_n, px, py, user),"
             "FOREIGN KEY (_n) REFERENCES worlds(_n)"
         ");";
         sqlite3_exec(db, sql, nullptr, nullptr, nullptr);
@@ -127,7 +128,7 @@ world::world(const std::string& name)
     }, name);
 
     blocks.resize(6000);
-    db.query("SELECT _p, fg, bg, pub, tog, tick, l FROM blocks WHERE _n = ?", [this](sqlite3_stmt* stmt) 
+    db.query("SELECT _p, fg, bg, pub, tog, tick, l, water, glue, fire FROM blocks WHERE _n = ?", [this](sqlite3_stmt* stmt)
     {
             int pos = sqlite3_column_int(stmt, 0);
             blocks[pos] = block(
@@ -138,6 +139,9 @@ world::world(const std::string& name)
                 std::chrono::steady_clock::time_point(std::chrono::seconds(sqlite3_column_int(stmt, 5))),
                 reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6))
             );
+            blocks[pos].water = sqlite3_column_int(stmt, 7);
+            blocks[pos].glue = sqlite3_column_int(stmt, 8);
+            blocks[pos].fire = sqlite3_column_int(stmt, 9);
     }, name);
      db.query("SELECT uid, i, c, x, y FROM ifloats WHERE _n = ?", [this](sqlite3_stmt* stmt) 
      {
@@ -180,46 +184,49 @@ world::~world()
     
     db.execute("REPLACE INTO worlds (_n, owner, pub) VALUES (?, ?, ?)", [this](sqlite3_stmt* stmt) 
     {
-            sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_int(stmt, 2, owner);
             sqlite3_bind_int(stmt, 3, _public);
     });
     
-    db.execute("DELETE FROM blocks WHERE _n = ?", [this](auto stmt) {
-        sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
-    });
-    
     for (int pos = 0; pos < blocks.size(); pos++) {
         const block &b = blocks[pos];
-        db.execute("INSERT INTO blocks (_n, _p, fg, bg, pub, tog, tick, l, water, glue, fire) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [this, &b, &pos](sqlite3_stmt* stmt) 
-        {
-            int i = 1;
-            sqlite3_bind_text(stmt, i++, name.c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_int(stmt, i++, pos);
-            sqlite3_bind_int(stmt, i++, b.fg);
-            sqlite3_bind_int(stmt, i++, b.bg);
-            sqlite3_bind_int(stmt, i++, b._public);
-            sqlite3_bind_int(stmt, i++, b.toggled);
-            sqlite3_bind_int(stmt, i++, 
-                static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(
-                    b.tick.time_since_epoch()).count()));
-            sqlite3_bind_text(stmt, i++, b.label.c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_int(stmt, i++, b.water);
-            sqlite3_bind_int(stmt, i++, b.glue);
-            sqlite3_bind_int(stmt, i++, b.fire);
-        });
+        if (b.fg == 0 && b.bg == 0 && b.label.empty() && !b.water && !b.fire && !b.glue) { // If block is empty, delete it from DB
+            db.execute("DELETE FROM blocks WHERE _n = ? AND _p = ?", [this, &pos](sqlite3_stmt* stmt) {
+                sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_int(stmt, 2, pos);
+            });
+        } else { // Otherwise, update/insert it
+            db.execute("REPLACE INTO blocks (_n, _p, fg, bg, pub, tog, tick, l, water, glue, fire) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [this, &b, &pos](sqlite3_stmt* stmt)
+            {
+                int i = 1;
+                sqlite3_bind_text(stmt, i++, name.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_int(stmt, i++, pos);
+                sqlite3_bind_int(stmt, i++, b.fg);
+                sqlite3_bind_int(stmt, i++, b.bg);
+                sqlite3_bind_int(stmt, i++, b._public);
+                sqlite3_bind_int(stmt, i++, b.toggled);
+                sqlite3_bind_int(stmt, i++,
+                    static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(
+                        b.tick.time_since_epoch()).count()));
+                sqlite3_bind_text(stmt, i++, b.label.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_int(stmt, i++, b.water);
+                sqlite3_bind_int(stmt, i++, b.glue);
+                sqlite3_bind_int(stmt, i++, b.fire);
+            });
+        }
     }
 
     db.execute("DELETE FROM ifloats WHERE _n = ?", [this](auto stmt) {
-        sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
     });
     
     for (const auto& [uid, item] : ifloats) 
     {
-        db.execute("INSERT INTO ifloats (_n, uid, i, c, x, y) VALUES (?, ?, ?, ?, ?, ?)", [&](sqlite3_stmt* stmt) 
+        db.execute("REPLACE INTO ifloats (_n, uid, i, c, x, y) VALUES (?, ?, ?, ?, ?, ?)", [&](sqlite3_stmt* stmt)
         {
             int i = 1;
-            sqlite3_bind_text(stmt, i++, name.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, i++, name.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_int(stmt, i++, uid);
             sqlite3_bind_int(stmt, i++, item.id);
             sqlite3_bind_int(stmt, i++, item.count);
@@ -229,18 +236,18 @@ world::~world()
     }
 
     db.execute("DELETE FROM locks WHERE _n = ?", [this](auto stmt) {
-        sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
     });
     db.execute("DELETE FROM lock_access WHERE _n = ?", [this](auto stmt) {
-        sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
     });
 
     for (const auto& lock : locks)
     {
-        db.execute("INSERT INTO locks (_n, id, owner, px, py) VALUES (?, ?, ?, ?, ?)", [&](sqlite3_stmt* stmt)
+        db.execute("REPLACE INTO locks (_n, id, owner, px, py) VALUES (?, ?, ?, ?, ?)", [&](sqlite3_stmt* stmt)
         {
             int i = 1;
-            sqlite3_bind_text(stmt, i++, name.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, i++, name.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_int(stmt, i++, lock.id);
             sqlite3_bind_int(stmt, i++, lock.owner_id);
             sqlite3_bind_int(stmt, i++, lock.pos[0]);
@@ -249,10 +256,10 @@ world::~world()
 
         for (const auto& user_id : lock.access_list)
         {
-            db.execute("INSERT INTO lock_access (_n, px, py, user) VALUES (?, ?, ?, ?)", [&](sqlite3_stmt* stmt)
+            db.execute("REPLACE INTO lock_access (_n, px, py, user) VALUES (?, ?, ?, ?)", [&](sqlite3_stmt* stmt)
             {
                 int i = 1;
-                sqlite3_bind_text(stmt, i++, name.c_str(), -1, SQLITE_STATIC);
+                sqlite3_bind_text(stmt, i++, name.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_int(stmt, i++, lock.pos[0]);
                 sqlite3_bind_int(stmt, i++, lock.pos[1]);
                 sqlite3_bind_int(stmt, i++, user_id);

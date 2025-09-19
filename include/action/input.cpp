@@ -35,7 +35,15 @@ void action::input(ENetEvent& event, const std::string& header)
     else if (text.starts_with('/')) 
     {
         packet::action(*event.peer, "log", std::format("msg| `6{}``", text));
-        std::string command = text.substr(1, text.find(' ') - 1);
+
+        std::string command;
+        size_t space_pos = text.find(' ');
+        if (space_pos == std::string::npos) {
+            command = text.substr(1);
+        }
+        else {
+            command = text.substr(1, space_pos - 1);
+        }
         
         if (auto it = cmd_pool.find(command); it != cmd_pool.end()) 
             it->second(std::ref(event), std::move(text.substr(1)));

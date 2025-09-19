@@ -43,9 +43,13 @@
    </details> 
    <details><summary><img width="18" height="18" src="https://github.com/user-attachments/assets/742f35c4-3e69-450e-8095-9fabe9ecd0d8" /> Debian <img width="18" height="18" src="https://github.com/user-attachments/assets/46f0770e-f4ed-480b-851d-c90b05fae52f" /> Ubuntu</summary>
    <p>
-      
+
+   > [!TIP]
+   > You can run the `./install_ubuntu_deps.sh` script to install all dependencies automatically.
+
+   Alternatively, run the following command manually:
    ```bash
-   sudo apt-get update && sudo apt-get install build-essential libssl-dev openssl sqlite3
+   sudo apt-get update && sudo apt-get install -y build-essential libssl-dev openssl sqlite3 libsqlite3-dev
    ```
         
    </p>

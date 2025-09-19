@@ -43,9 +43,20 @@
    </details> 
    <details><summary><img width="18" height="18" src="https://github.com/user-attachments/assets/742f35c4-3e69-450e-8095-9fabe9ecd0d8" /> Debian <img width="18" height="18" src="https://github.com/user-attachments/assets/46f0770e-f4ed-480b-851d-c90b05fae52f" /> Ubuntu</summary>
    <p>
-      
+
+   > [!IMPORTANT]
+   > This project requires a modern C++ compiler (`g++-13` or newer) to build.
+
+   > [!TIP]
+   > You can run the `./install_ubuntu_deps.sh` script to install all dependencies, including the correct compiler, automatically.
+
+   Alternatively, run the following commands manually:
    ```bash
-   sudo apt-get update && sudo apt-get install build-essential libssl-dev openssl sqlite3
+   # Add the toolchain PPA to get a modern G++ version
+   sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+   # Update package list and install dependencies
+   sudo apt-get update
+   sudo apt-get install -y build-essential g++-13 libstdc++-13-dev libssl-dev openssl sqlite3 libsqlite3-dev
    ```
         
    </p>

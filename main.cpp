@@ -30,10 +30,10 @@ int main()
     enet_initialize();
     {
         ::_server_data server_data = init_server_data();
-        ENetAddress address{
-            .type = ENET_ADDRESS_TYPE_IPV4, 
-            .port = server_data.port
-        };
+        ENetAddress address;
+        memset(&address, 0, sizeof(ENetAddress));
+        address.type = ENET_ADDRESS_TYPE_IPV4;
+        address.port = server_data.port;
 
         server = enet_host_create (ENET_ADDRESS_TYPE_IPV4, &address, 50zu, 2zu, 0, 0);
         std::thread(&https::listener, server_data).detach();

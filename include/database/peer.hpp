@@ -99,6 +99,11 @@ public:
     */
     void add_xp(ENetEvent &event, u_short value);
 
+    /*
+    * @brief recalculate transient effects based on clothing.
+    */
+    void update_effects();
+
     std::array<std::string, 6zu> recent_worlds{}; // @note recent worlds, a list of 6 worlds, once it reaches 7 it'll be replaced by the oldest
     std::array<std::string, 200zu> my_worlds{}; // @note first 200 relevant worlds locked by peer.
     

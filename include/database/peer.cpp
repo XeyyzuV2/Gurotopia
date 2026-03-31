@@ -3,6 +3,7 @@
 #include "world.hpp"
 #include "on/SetClothing.hpp"
 #include "on/CountryState.hpp"
+#include "commands/punch.hpp"
 
 #include "peer.hpp"
 
@@ -55,6 +56,17 @@ void peer::add_xp(ENetEvent &event, u_short value)
             "OnTalkBubble", this->netid,
             std::format("`{}{}`` is now level {}!", this->prefix, this->ltoken[0], lvl).c_str()
         });
+    }
+}
+
+void peer::update_effects()
+{
+    this->punch_effect = 0;
+    for (float cloth : this->clothing)
+    {
+        u_short punch_id = get_punch_id(static_cast<u_int>(cloth));
+        if (punch_id != 0)
+            this->punch_effect = punch_id;
     }
 }
 
@@ -139,6 +151,7 @@ peer& peer::read(const std::string& name)
         ++i;
     }, name);
     
+    this->update_effects();
     return *this;
 }
 

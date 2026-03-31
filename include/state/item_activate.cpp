@@ -14,13 +14,8 @@ void item_activate(ENetEvent& event, state state)
 
         current_cloth = (current_cloth == state.id) ? 0 : state.id;
 
-        pPeer->punch_effect = 0;
-        for (float cloth : pPeer->clothing)
-        {
-            u_short punch_id = get_punch_id(static_cast<u_int>(cloth));
-            if (punch_id != 0)
-                pPeer->punch_effect = punch_id;
-        }
+        pPeer->update_effects();
+        
         /* @note this is so we can add the latest punch effect (if any) */
         u_short punch_id = get_punch_id(static_cast<u_int>(current_cloth));
         if (punch_id != 0)

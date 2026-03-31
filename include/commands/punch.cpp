@@ -20,7 +20,7 @@ u_char get_punch_id(u_int item_id)
         case 1484: return 12;
 
         case 3066: case 5206: case 7504: case 10288: return 17; // @note https://growtopia.fandom.com/wiki/Mods/Fire_Hose
-        case 2636: case 2908: case 3070: case 3108: case 3466: return 29; // @note https://growtopia.fandom.com/wiki/Mods/Slasher
+        case 2636: case 2908: case 3070: case 3108: case 3466: case 2952: return 29; // @note https://growtopia.fandom.com/wiki/Mods/Slasher
 
         default: return 0;
     }

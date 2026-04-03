@@ -46,6 +46,6 @@ void on::RequestGazette(ENetEvent& event)
 
     packet::create(*event.peer, false, 0, {
         "OnDialogRequest",
-        dialog
+        dialog.c_str()
     });
 }

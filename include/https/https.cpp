@@ -16,7 +16,30 @@
     #include <sys/socket.h>
 
     #define SOCKET int
+    #define INVALID_SOCKET	(SOCKET)(~0)
+    #define SOCKET_ERROR	(-1)
+
 #endif
+
+/* cross-platform socket close */
+static void cross_close(SOCKET fd)
+{
+#ifdef _WIN32
+    closesocket(fd);
+#else // @note unix
+    close(fd);
+#endif
+}
+
+/* cross-platform error log */
+static void cross_log(const std::string &message)
+{
+#ifdef _WIN32
+    std::fprintf(stderr, "%s: %d\n", message.c_str(), WSAGetLastError());
+#else // @note unix
+    std::fprintf(stderr, "%s: %s\n", message.c_str(), strerror(errno));
+#endif
+}
 
 void https::listener()
 {
@@ -25,7 +48,7 @@ void https::listener()
     constexpr int enable = 1;
 
     SSL_CTX *ctx = SSL_CTX_new(TLS_server_method());
-    if (ctx == nullptr)
+    if (!ctx)
         ERR_print_errors_fp(stderr);
 
     if (SSL_CTX_use_certificate_file(ctx, "resources/ctx/server.crt", SSL_FILETYPE_PEM) <= 0 ||
@@ -34,11 +57,16 @@ void https::listener()
 
     SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
 
-#ifdef SIGPIPE
+#ifdef SIGPIPE // @note unix
     std::signal(SIGPIPE, SIG_IGN);
 #endif
 
+    /* https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-socket */
     SOCKET socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (socket == INVALID_SOCKET)
+    {
+        cross_log("socket function failed");
+    }
 
 #ifdef SO_REUSEADDR
     setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, (char*)&enable, sizeof(enable));
@@ -51,10 +79,12 @@ void https::listener()
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(443);
     socklen_t addrlen = sizeof(addr);
-    if (bind(socket, (struct sockaddr*)&addr, addrlen) < 0)
-        puts("could not bind port 443.");
 
-    std::printf("listening on %s:%hu\n", g_server_data.server.c_str(), g_server_data.port);
+    /* https://learn.microsoft.com/en-us/windows/win32/api/winsock/nf-winsock-bind */
+    if (bind(socket, (struct sockaddr*)&addr, addrlen) == SOCKET_ERROR)
+    {
+        cross_log("could not bind socket");
+    }
 
     const std::string Content =
         std::format(
@@ -77,29 +107,37 @@ void https::listener()
             "{}",
             Content.size(), Content);
 
-    listen(socket, SOMAXCONN); // @todo
+    /* https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-listen */
+    if (listen(socket, SOMAXCONN) == SOCKET_ERROR)
+    {
+        cross_log("failed to listen on socket");
+    }
+    else std::printf("listening on %s:%hu\n", g_server_data.server.c_str(), g_server_data.port);
+    
     while (true)
     {
+        /* https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-accept */
         SOCKET fd = accept(socket, reinterpret_cast<sockaddr*>(&addr), &addrlen);
-        if (fd < 0) continue;
+        if (fd == INVALID_SOCKET) 
+        {
+            cross_log("accept function failed");
+            continue;
+        }
 
-        setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char*)&enable, sizeof(enable));
+        /* https://learn.microsoft.com/en-us/windows/win32/api/winsock/nf-winsock-setsockopt */
+        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char*)&enable, sizeof(enable)) == SOCKET_ERROR)
+        {
+            cross_log("setting TCP_NODELAY socket option failed");
+            continue; // @todo or let them connect with delay
+        }
 
         SSL *ssl = SSL_new(ctx);
-        if (!ssl) { 
-#ifdef _WIN32
-            closesocket(fd);
-#else
-            close(fd);
-#endif
+        if (!ssl) {
+            cross_close(fd);
             continue;
         }
         if (SSL_set_fd(ssl, fd) != 1) {
-#ifdef _WIN32
-            closesocket(fd);
-#else
-            close(fd);
-#endif
+            cross_close(fd);
             continue;
         }
         if (SSL_accept(ssl) > 0)
@@ -124,11 +162,7 @@ void https::listener()
 
         SSL_shutdown(ssl);
         SSL_free(ssl);
-#ifdef _WIN32
-            closesocket(fd);
-#else
-            close(fd);
-#endif
+        cross_close(fd);
     }
 }
 

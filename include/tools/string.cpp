@@ -3,13 +3,13 @@
 
 #include "string.hpp"
 
-std::vector<std::string> readch(const std::string &str, char c) 
+std::vector<std::string> readch(const std::string &str, char deli) 
 {
     std::vector<std::string> result;
-    result.reserve(std::ranges::count(str, c) + 1);
+    result.reserve(std::ranges::count(str, deli) + 1);
 
-    for (auto &&part : std::views::split(str, c))
-        result.emplace_back(std::ranges::begin(part), std::ranges::end(part));
+    for (const auto &part : str | std::views::split(deli))
+        result.emplace_back(std::string_view(part));
 
     return result;
 }

@@ -136,7 +136,7 @@ void tile_change(ENetEvent& event, state state)
                 }
                 case type::PROVIDER:
                 {
-                    if ((steady_clock::now() - block.tick) / 1s >= item->tick) // @todo limit this check.
+                    if ((steady_clock::now() - block.tick) / 1s >= item->tick)
                     {
                         switch (item->id)
                         {

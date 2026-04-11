@@ -1,5 +1,4 @@
 #include "pch.hpp"
-#include "tools/string.hpp"
 #include "itemfavourite.hpp"
 
 void action::itemfavourite(ENetEvent& event, const std::string& header)

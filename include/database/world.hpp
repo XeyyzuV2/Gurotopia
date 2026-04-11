@@ -61,7 +61,7 @@ struct door
     std::string dest{};
     std::string id{};
     std::string password{};
-    ::pos pos;
+    ::pos pos{};
 };
 
 struct display
@@ -69,7 +69,7 @@ struct display
     display(u_int _id, ::pos _pos) : id(_id), pos(_pos) {}
 
     u_int id{};
-    ::pos pos;
+    ::pos pos{};
 };
 
 struct random_block
@@ -77,15 +77,15 @@ struct random_block
     random_block(u_char _value, ::pos _pos) : value(_value), pos(_pos) {}
 
     u_char value{};
-    ::pos pos;
+    ::pos pos{};
 };
 
 struct object 
 {
     object(u_short _id, u_short _count, ::pos _pos, u_int _uid) : id(_id), count(_count), pos(_pos), uid(_uid) {}
-    u_short id{0};
-    u_short count{0};
-    ::pos pos;
+    u_short id{};
+    u_short count{};
+    ::pos pos{};
 
     u_int uid{};
 };
@@ -113,7 +113,7 @@ public:
     std::vector<::display> displays{};
     std::vector<::random_block> random_blocks{};
 
-    ::pos 现weather{0, 0};
+    ::pos 现weather{};
 };
 extern std::vector<world> worlds;
 

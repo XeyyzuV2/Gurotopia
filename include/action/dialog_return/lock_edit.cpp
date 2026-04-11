@@ -2,28 +2,23 @@
 
 #include "lock_edit.hpp"
 
-void lock_edit(ENetEvent& event, const std::vector<std::string> &&pipes)
+void lock_edit(ENetEvent& event, const ::hPipe &hPipe)
 {
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
+
     auto world = std::ranges::find(worlds, pPeer->recent_worlds.back(), &::world::name);
     if (world == worlds.end()) return;
 
-    ::pos pos{0,0};
-    for (u_short i = 0; const std::string &pipe : pipes)
-    {
-        if      (pipe == "tilex")                  pos.x = atoi(pipes[i+1].c_str());
-        else if (pipe == "tiley")                  pos.y = atoi(pipes[i+1].c_str());
-        else if (pipe == "checkbox_public")        world->is_public = atoi(pipes[i+1].c_str());
-        else if (pipe == "checkbox_disable_music") 
-        {
-            if (atoi(pipes[i+1].c_str()) != 0)
-                 world->lock_state |= DISABLE_MUSIC;
-            else world->lock_state &= ~DISABLE_MUSIC;
-        }
-        else if (pipe == "minimum_entry_level")    world->minimum_entry_level = atoi(pipes[i+1].c_str());
+    ::pos pos{};
+    pos.x = atoi(hPipe["tilex"].c_str());
+    pos.y = atoi(hPipe["tiley"].c_str());
+    
+    world->is_public = atoi(hPipe["checkbox_public"].c_str());
+    if (atoi(hPipe["checkbox_disable_music"].c_str()) != 0)
+        world->lock_state |= DISABLE_MUSIC;
+    else world->lock_state &= ~DISABLE_MUSIC;
+    world->minimum_entry_level = atoi(hPipe["minimum_entry_level"].c_str());
 
-        ++i;
-    }
     ::block &block = world->blocks[cord(pos.x, pos.y)];
 
     if (world->is_public) 

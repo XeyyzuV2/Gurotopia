@@ -7,6 +7,25 @@
 */
 extern std::vector<std::string> readch(const std::string &str, char c);
 
+struct hPipe
+{
+    hPipe(const std::string &str)
+    {
+        std::vector<std::string> pipes = readch(str, '|');
+        for (std::size_t i = 0; i + 1 < pipes.size(); ++i)
+            mPairs.emplace_back(pipes[i], pipes[i + 1]);
+    }
+    std::string operator[](const std::string &key) const 
+    { 
+        for (const std::pair<std::string, std::string> &pair : mPairs)
+            if (pair.first == key) return pair.second;
+
+        return "";
+    }
+private:
+    std::vector<std::pair<std::string, std::string>> mPairs;
+};
+
 extern std::string join(const std::vector<std::string>& range, const std::string& del);
 
 /*

@@ -15,4 +15,6 @@
     #include "database/world.hpp"
     #include "packet/packet.hpp"
 
+    #include "tools/string.hpp"
+
 #endif

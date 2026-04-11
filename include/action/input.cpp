@@ -1,6 +1,5 @@
 #include "pch.hpp"
 #include "commands/__command.hpp"
-#include "tools/string.hpp"
 #include "input.hpp"
 
 using namespace std::chrono;
@@ -9,12 +8,8 @@ void action::input(ENetEvent& event, const std::string& header)
 {
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
 
-    std::vector<std::string> pipes = readch(header, '|');
-    if (pipes.size() < 5) return;
-    if (pipes[3] != "text") return;
-
-    std::string text = pipes[4];
-    if (text.empty()) return;
+    ::hPipe hPipe{ header };
+    std::string text = hPipe["text"];
 
     if (text.front() == '\r' || std::ranges::all_of(text, ::isspace)) return;
     text.erase(text.begin(), std::find_if_not(text.begin(), text.end(), ::isspace));

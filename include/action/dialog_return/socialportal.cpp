@@ -1,12 +1,11 @@
 #include "pch.hpp"
 #include "socialportal.hpp"
 
-void socialportal(ENetEvent& event, const std::vector<std::string> &&pipes)
+void socialportal(ENetEvent& event, const ::hPipe &hPipe)
 {
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
 
-    /* buttonClicked */
-    if (pipes[5zu] == "showfriend")
+    if (hPipe["buttonClicked"] == "showfriend")
     {
         /* temp data */
         u_char __online{};

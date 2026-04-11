@@ -1,5 +1,4 @@
 #include "pch.hpp"
-#include "tools/string.hpp"
 #include <fstream>
 
 #include "shouhin.hpp"

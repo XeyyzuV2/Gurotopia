@@ -1,5 +1,4 @@
 #include "pch.hpp"
-#include "tools/string.hpp" // @note base64_decode()
 #include "https/server_data.hpp"
 
 #include "protocol.hpp"
@@ -44,8 +43,6 @@ void action::protocol(ENetEvent& event, const std::string& header)
         pPeer->mysql_update<std::string>("password", pPeer->ltoken[1]);
     }
     pPeer->mysql_select_all();
-
-    packet::create(*event.peer, false, 0, {"SetHasGrowID", 1, pPeer->ltoken[0].c_str(), ""}); // @todo temp fix, i will change later.
 
     packet::create(*event.peer, false, 0, {
         "OnSendToServer",

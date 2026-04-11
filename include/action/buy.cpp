@@ -1,7 +1,6 @@
 #include "pch.hpp"
 #include "store.hpp"
 #include "on/SetBux.hpp"
-#include "tools/string.hpp"
 #include "database/shouhin.hpp"
 #include "tools/ransuu.hpp"
 #include "buy.hpp"
@@ -9,8 +8,7 @@
 
 void action::buy(ENetEvent& event, const std::string& header, const std::string_view selection = "")
 {
-    std::vector<std::string> pipes = readch(header, '|');
-    if (pipes.size() < 3) return;
+    ::hPipe hPipe{ header };
 
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
 
@@ -19,14 +17,15 @@ void action::buy(ENetEvent& event, const std::string& header, const std::string_
 
     auto growtoken = std::ranges::find(pPeer->slots, 1486, &::slot::id);
 
-    const std::string s_tab = pipes[3];
+    const std::string item = hPipe["item"];
+
     u_short tab{};
-    if (s_tab == "main") action::store(event, ""); // tab = 0
-    else if (s_tab == "locks")    tab = 1;
-    else if (s_tab == "itempack") tab = 2;
-    else if (s_tab == "bigitems") tab = 3;
-    else if (s_tab == "weather")  tab = 4;
-    else if (s_tab == "token")    tab = 5;
+    if (item == "main") action::store(event, ""); // tab = 0
+    else if (item == "locks")    tab = 1;
+    else if (item == "itempack") tab = 2;
+    else if (item == "bigitems") tab = 3;
+    else if (item == "weather")  tab = 4;
+    else if (item == "token")    tab = 5;
     if (tab != 0) 
     {
         std::string StoreRequest{};
@@ -72,7 +71,7 @@ void action::buy(ENetEvent& event, const std::string& header, const std::string_
     }
     else for (auto &&[_tab, shouhin] : shouhin_tachi)
     {
-        if (s_tab == shouhin.btn)
+        if (item == shouhin.btn)
         {
             int growtoken_cost = std::abs(shouhin.cost);
             if (shouhin.btn == "upgrade_backpack") shouhin.cost = backpack_cost;

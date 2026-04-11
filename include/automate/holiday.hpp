@@ -16,4 +16,4 @@ extern std::string game_theme_string();
 
 extern std::pair<std::string, std::string> holiday_greeting();
 
-std::string holiday_banner();
+extern std::string holiday_banner();

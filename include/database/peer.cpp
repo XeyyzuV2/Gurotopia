@@ -5,7 +5,6 @@
 #include "on/SetClothing.hpp"
 #include "on/CountryState.hpp"
 #include "commands/punch.hpp"
-#include "tools/string.hpp"
 
 #include "peer.hpp"
 
@@ -41,9 +40,10 @@ void peer::mysql_update(const std::string& column, const T& value)
 {
     ::hStmt hStmt{ std::format("UPDATE peer SET {} = ? WHERE growid = ?", column).c_str() };
 
-    MYSQL_BIND params[2] = {};
-    params[0] = make_bind_in(value);
-    params[1] = make_bind_in(this->ltoken[0]);
+    MYSQL_BIND params[2] = {
+        make_bind_in(value),           // SET
+        make_bind_in(this->ltoken[0]) // WHERE
+    };
     mysql_stmt_bind_param(hStmt.pStmt, params);
     mysql_stmt_execute(hStmt.pStmt);
 }
@@ -68,10 +68,7 @@ T peer::mysql_select(const std::string &column, const char *arg)
     mysql_stmt_fetch(hStmt.pStmt);
     return value;
 }
-template signed peer::mysql_select<signed>(const std::string&, const char *);
-template unsigned peer::mysql_select<unsigned>(const std::string&, const char *);
-template float peer::mysql_select<float>(const std::string&, const char *);
-template std::string peer::mysql_select<std::string>(const std::string&, const char *);
+/* since we will only select during mysql_select_all */ // @note add templates here if use select outside of this file.
 
 void peer::mysql_select_all()
 {

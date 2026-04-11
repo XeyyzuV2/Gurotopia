@@ -1,7 +1,6 @@
 #include "pch.hpp"
 #include "on/RequestWorldSelectMenu.hpp"
 #include "on/RequestGazette.hpp"
-#include "tools/string.hpp"
 #include "tools/create_dialog.hpp"
 #include "on/SetBux.hpp"
 #include "automate/holiday.hpp"

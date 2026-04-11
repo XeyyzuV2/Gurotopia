@@ -1,15 +1,12 @@
 #include "pch.hpp"
 
-#include "tools/string.hpp" // @note to_char()
-
 #include "popup.hpp"
 
-void popup(ENetEvent& event, const std::vector<std::string> &&pipes)
+void popup(ENetEvent& event, const ::hPipe &hPipe)
 {
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
-    if (pipes.size() <= 11) return; // @note "Continue" botton on wrench has no data. so we return early.
 
-    if (pipes[11zu] == "my_worlds")
+    if (hPipe["buttonClicked"] == "my_worlds")
     {
         auto section = [](const auto& range) 
         {
@@ -40,7 +37,7 @@ void popup(ENetEvent& event, const std::vector<std::string> &&pipes)
             ).c_str()
         });
     }
-    else if (pipes[11zu] == "billboard_edit")
+    else if (hPipe["buttonClicked"] == "billboard_edit")
     {
         auto item = std::ranges::find(items, pPeer->billboard.id, &::item::id);
 
@@ -70,7 +67,7 @@ void popup(ENetEvent& event, const std::vector<std::string> &&pipes)
             ).c_str()
         });
     }
-    else if (pipes[11zu] == "seed_diary_customization")
+    else if (hPipe["buttonClicked"] == "seed_diary_customization")
     {
         packet::create(*event.peer, false, 0, {
             "OnDialogRequestRML",

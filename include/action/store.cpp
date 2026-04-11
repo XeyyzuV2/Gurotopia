@@ -1,8 +1,6 @@
 #include "pch.hpp"
 #include "store.hpp"
 
-#include "tools/string.hpp"
-
 std::string payment_site{ "https://discord.gg/zzWHgzaF7J" }; // @note replace with your payment site (paypal, ect)
 
 void action::store(ENetEvent& event, const std::string& header)

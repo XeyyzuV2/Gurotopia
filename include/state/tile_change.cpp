@@ -5,7 +5,6 @@
 #include "commands/weather.hpp"
 #include "item_activate.hpp"
 #include "tools/ransuu.hpp"
-#include "tools/string.hpp"
 #include "tools/create_dialog.hpp"
 #include "action/quit_to_exit.hpp"
 #include "action/join_request.hpp"

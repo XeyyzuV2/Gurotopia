@@ -15,7 +15,7 @@ void _connect(ENetEvent& event)
     }
     else 
     {
-        enet_peer_send(event.peer, 0, enet_packet_create("\x01\x00\x00\x00", 4zu, ENET_PACKET_FLAG_RELIABLE)); // @note 01 00 00 00
+        enet_peer_send(event.peer, 0, enet_packet_create((enet_uint8[4]){ 01 }, 4, ENET_PACKET_FLAG_RELIABLE));
 
         event.peer->data = new peer();
     }

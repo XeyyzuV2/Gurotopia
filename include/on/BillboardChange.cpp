@@ -1,5 +1,4 @@
 #include "pch.hpp"
-#include "tools/string.hpp"
 #include "BillboardChange.hpp"
 
 void on::BillboardChange(ENetEvent& event)

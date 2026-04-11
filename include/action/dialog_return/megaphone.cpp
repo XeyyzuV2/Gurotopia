@@ -4,9 +4,7 @@
 
 #include "megaphone.hpp"
 
-void megaphone(ENetEvent& event, const std::vector<std::string> &&pipes)
+void megaphone(ENetEvent& event, const ::hPipe &hPipe)
 {
-    if (pipes.size() < 7zu) return;
-
-    sb(event, pipes[5zu]); // @todo handle this when /sb requires gems @todo handle trim
+    sb(event, hPipe["message"]); // @todo handle this when /sb requires gems @todo handle trim
 }

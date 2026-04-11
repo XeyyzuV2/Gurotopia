@@ -1,5 +1,4 @@
 #include "pch.hpp"
-#include "tools/string.hpp"
 #include "tools/create_dialog.hpp"
 #include "info.hpp"
 

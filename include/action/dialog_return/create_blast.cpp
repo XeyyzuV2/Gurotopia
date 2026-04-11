@@ -5,10 +5,10 @@
 
 #include "create_blast.hpp"
 
-void create_blast(ENetEvent& event, const std::vector<std::string> &&pipes)
+void create_blast(ENetEvent& event, const ::hPipe &hPipe)
 {
-    const u_short id = atoi(pipes[5zu].c_str());
-    std::string world_name = pipes[8zu];
+    const u_short id = atoi(hPipe["id"].c_str());
+    std::string world_name = hPipe["name"];
     
     std::for_each(world_name.begin(), world_name.end(), [](char& c) { c = std::toupper(c); });
 

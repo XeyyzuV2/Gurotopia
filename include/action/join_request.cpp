@@ -6,7 +6,6 @@
 #include "on/CountryState.hpp"
 #include "commands/weather.hpp"
 #include "tools/ransuu.hpp"
-#include "tools/string.hpp"
 #include "join_request.hpp"
 
 #include <cmath> // @note std::round

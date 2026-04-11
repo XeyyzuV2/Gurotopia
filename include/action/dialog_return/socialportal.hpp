@@ -1,3 +1,3 @@
 #pragma once
 
-extern void socialportal(ENetEvent& event, const std::vector<std::string> &&pipes);
+extern void socialportal(ENetEvent& event, const ::hPipe &hPipe);

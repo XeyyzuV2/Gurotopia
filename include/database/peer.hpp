@@ -11,13 +11,14 @@ struct slot {
 
 /* x, y */
 struct pos {
+    pos() = default;
     pos(float _x, float _y) : x(_x), y(_y) {}
     pos(int _x, int _y)     : x(_x), y(_y) {}
 
     float x, y;
 
     /* use this for pixeled position - i did my best t-t */
-    pos by_32(bool pixel = false) const { return (pixel) ? ::pos{std::floor(x/32.0f), std::floor(y/32.0f)} : ::pos{x*32.0f, y*32.0f}; }
+    pos by_32(bool pixel = false) const { return (pixel) ? pos{std::floor(x/32.0f), std::floor(y/32.0f)} : pos{x*32.0f, y*32.0f}; }
 
     int x_int() const { return std::floor(x); }
     int y_int() const { return std::floor(y); }
@@ -89,8 +90,8 @@ public:
 
     ::Billboard billboard{};
 
-    ::pos pos{0,0}; // @note position 1D {x, y}
-    ::pos rest_pos{0,0}; // @note respawn position {x, y}
+    ::pos pos{}; // @note position 1D {x, y}
+    ::pos rest_pos{}; // @note respawn position {x, y}
     bool facing_left{}; // @note peer is directed towards the left direction
 
     short slot_size{16}; // @note amount of slots this peer has | were talking total slots not itemed slots, to get itemed slots do slot.size()
@@ -149,10 +150,10 @@ public:
     int peer_state{};
     float count{}; // @todo understand this better
     int id{}; // @note peer's active hand, so 18 (fist) = punching, 32 (wrench) interacting, ect
-    ::pos pos{0,0}; // @note position 1D {x, y}
-    ::pos speed{0,0}; // @note player movement (velocity(x), gravity(y)), higher gravity = smaller jumps
+    ::pos pos{}; // @note position 1D {x, y}
+    ::pos speed{}; // @note player movement (velocity(x), gravity(y)), higher gravity = smaller jumps
     int idk{};
-    ::pos punch{0,0}; // @note punching/placing position 2D {x, y}
+    ::pos punch{}; // @note punching/placing position 2D {x, y}
     int size{};
 };
 

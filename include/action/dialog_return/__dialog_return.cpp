@@ -9,12 +9,11 @@
 #include "lock_edit.hpp"
 #include "create_blast.hpp"
 #include "socialportal.hpp"
-#include "peer_edit.hpp"
 #include "megaphone.hpp"
 
 #include "__dialog_return.hpp"
 
-std::unordered_map<std::string, std::function<void(ENetEvent&, const std::vector<std::string> &&)>> dialog_return_pool
+std::unordered_map<std::string, std::function<void(ENetEvent &, const ::hPipe &)>> dialog_return_pool
 {
     {"popup", std::bind(&popup, std::placeholders::_1, std::placeholders::_2)},
 
@@ -28,7 +27,6 @@ std::unordered_map<std::string, std::function<void(ENetEvent&, const std::vector
 
     {"billboard_edit", std::bind(&billboard_edit, std::placeholders::_1, std::placeholders::_2)},
     {"lock_edit", std::bind(&lock_edit, std::placeholders::_1, std::placeholders::_2)},
-    {"peer_edit", std::bind(&peer_edit, std::placeholders::_1, std::placeholders::_2)},
 
     {"create_blast", std::bind(&create_blast, std::placeholders::_1, std::placeholders::_2)},
     {"socialportal", std::bind(&socialportal, std::placeholders::_1, std::placeholders::_2)},

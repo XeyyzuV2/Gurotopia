@@ -11,53 +11,56 @@
 
 ***
 
-# <img width="190" height="50" alt="Windows_logo_and_wordmark_-_2021 svg" src="https://github.com/user-attachments/assets/1385f762-2c56-465a-aa3b-901a431552bb" />
+# <img width="190" height="50" src="https://github.com/user-attachments/assets/1385f762-2c56-465a-aa3b-901a431552bb" />
 
-#### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/archive.svg) 1. Install Dependencies
-   - download [**MSYS2**](https://www.msys2.org/) and [**Visual Studio Code**](https://code.visualstudio.com/): install [C/C++ extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) for VSC (**Required**)
-     
+### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/archive.svg) 1. Requirements
+   - [**MSYS2**](https://www.msys2.org/)
+   - [**Visual Studio Code**](https://code.visualstudio.com/): install [C/C++ extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) for VSCode
+   - [**MariaDB Server**](https://mariadb.org/download/?t=mariadb&p=mariadb&r=11.8.6&os=windows&cpu=x86_64&pkg=msi&mirror=accretive)
+
+### 2. Setup MSYS2
    - Locate your MSYS2 folder (e.g., `C:\msys64`), open `ucrt64.exe`, and run the following command:
      ```bash
-     pacman -S --needed mingw-w64-ucrt-x86_64-{gcc,openssl,sqlite} make
+     pacman -S --needed mingw-w64-ucrt-x86_64-{gcc,openssl} make
      ```
 
-#### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/build.svg) 2. Compile
+### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/build.svg) 3. Compile
    - Open the project folder in Visual Studio Code.
    - Press **`Ctrl + Shift + B`** to start the build process.
 
-#### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/debug-alt-small.svg) 3. Run/Debug
-   - After compiling, press **`F5`** to run the server with the debugger attached.
+### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/debug-alt-small.svg) 4. Run
+   - After compiling, press **`F5`** to run the server!
 
 # <img src="https://github.com/user-attachments/assets/fecde323-04c5-4b82-a08d-badcb184be6a" width="30" /> Linux
 
-#### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/archive.svg) 1. Install Dependencies
+### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/archive.svg) 1. Install Dependencies
 
 - enter command associated with your distribution into the terminal to install nessesary tools.
-   <details><summary><img width="18" height="18" src="https://github.com/user-attachments/assets/8359ba6e-a9b2-4500-893f-61eaf40e2478" /> Arch</summary>
+   <details><summary><img width="22" height="22" src="https://github.com/user-attachments/assets/8359ba6e-a9b2-4500-893f-61eaf40e2478" /> Arch</summary>
    <p>
       
    ```bash
-   sudo pacman -S base-devel openssl sqlite
+   sudo pacman -S base-devel openssl mariadb-libs
    ```
    </p>
    </details> 
-   <details><summary><img width="18" height="18" src="https://github.com/user-attachments/assets/742f35c4-3e69-450e-8095-9fabe9ecd0d8" /> Debian <img width="18" height="18" src="https://github.com/user-attachments/assets/46f0770e-f4ed-480b-851d-c90b05fae52f" /> Ubuntu</summary>
+   <details><summary><img width="22" height="22" src="https://github.com/user-attachments/assets/742f35c4-3e69-450e-8095-9fabe9ecd0d8" /> Debian <img width="18" height="18" src="https://github.com/user-attachments/assets/46f0770e-f4ed-480b-851d-c90b05fae52f" /> Ubuntu</summary>
    <p>
       
    ```bash
-   sudo apt-get update && sudo apt-get install build-essential libssl-dev openssl sqlite3
+   sudo apt-get update && sudo apt-get install build-essential libssl-dev libmariadb-dev
    ```
         
    </p>
    </details> 
 
-#### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/build.svg) 2. Compile
+### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/build.svg) 2. Compile
    - Navigate to the project's root directory in your terminal and run the `make` command:
      ```bash
      make -j$(nproc)
      ```
 
-#### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/debug-alt-small.svg) 3. Run
+### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/debug-alt-small.svg) 3. Run
    - Execute the compiled binary located in the `main` directory:
      ```bash
      ./main.out
@@ -72,7 +75,6 @@
 > - **Windows**: `C:\Windows\System32\drivers\etc\hosts`
 > - **Linux/macOS**: `/etc/hosts`
 >
-> Add the following lines to the end of the file:
 > ```
 > 127.0.0.1 www.growtopia1.com
 > 127.0.0.1 www.growtopia2.com

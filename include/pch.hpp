@@ -8,7 +8,6 @@
     #include <chrono>
     #include <thread>
     #include <vector>
-    #include <sqlite3.h>
     #include <openssl/ssl.h>
 
     #include "database/items.hpp"

@@ -37,9 +37,6 @@ void peer_edit(ENetEvent& event, const std::vector<std::string> &&pipes)
     }
     else // @note offline
     {
-        ::peer &offline = ::peer().read(name);
-        offline.role = role;
-        offline.level[0] = level;
-        offline.gems = gems;
+        
     }
 }

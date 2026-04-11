@@ -1,6 +1,6 @@
 CXX := g++
 CXXFLAGS := -std=c++2b -g -Iinclude -MMD -MP
-LIBS := -L./include/enet/lib -lssl -lcrypto -lsqlite3
+LIBS := -L./include/enet/lib -L./include/mysql/lib -lssl -lcrypto -lmariadb
 
 BUILD_DIR := build
 

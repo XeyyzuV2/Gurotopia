@@ -19,7 +19,7 @@ if not exist "C:\msys64\usr\bin\bash.exe" (
 	del msys2.exe
 )
 
-C:\msys64\usr\bin\bash.exe -lc "pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-{gcc,openssl,sqlite} make"
+C:\msys64\usr\bin\bash.exe -lc "pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-{gcc,openssl} make"
 
 :: open Gurotopia in vscode @todo automatically build Gurotopia.
 code . main.cpp

@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 
-RUN apt update && apt install -y build-essential libssl-dev libsqlite3-dev
+RUN apt update && apt install -y build-essential libssl-dev libmariadb-dev
 
 COPY . .
 

@@ -6,12 +6,13 @@
 
 void action::protocol(ENetEvent& event, const std::string& header)
 {
-    std::string growid{}, password{};
+    ::peer *pPeer = static_cast<::peer*>(event.peer->data);
     try 
     {
         std::vector<std::string> pipes = readch(header, '|');
         if (pipes.size() < 4zu) throw std::runtime_error("");
 
+        std::string growid{}, password{};
         if (pipes[2zu] == "ltoken")
         {
             const std::string decoded = base64_decode(pipes[3zu]);
@@ -25,25 +26,34 @@ void action::protocol(ENetEvent& event, const std::string& header)
             if (std::size_t pos = decoded.find("password="); pos != std::string::npos) 
             {
                 pos += sizeof("password=")-1zu;
-                password = decoded.substr(pos);
+                password = decoded.substr(pos, decoded.find('&', pos) - pos);
             }
         } // @note delete decoded
         if (growid.empty() || password.empty()) throw std::runtime_error("");
+        pPeer->ltoken = { growid, password/*@todo*/ };
     }
     catch (...) { 
         packet::action(*event.peer, "logon_fail", "");
         return; // @note stop processing invalid protocol data
     }
 
-    packet::create(*event.peer, false, 0, {"SetHasGrowID", 1, growid.c_str(), ""}); // @todo temp fix, i will change later.
+    if (!pPeer->exists(pPeer->ltoken[0]))
+    {
+        pPeer->mysql_insert("growid", pPeer->ltoken[0]);
+        
+        pPeer->mysql_update<std::string>("password", pPeer->ltoken[1]);
+    }
+    pPeer->mysql_select_all();
+
+    packet::create(*event.peer, false, 0, {"SetHasGrowID", 1, pPeer->ltoken[0].c_str(), ""}); // @todo temp fix, i will change later.
 
     packet::create(*event.peer, false, 0, {
         "OnSendToServer",
-        (signed)g_server_data.port,
+        (signed)gServer_data.port,
         0,
-        (signed)fnv1a(growid), // @todo downsize to 4 bit
-        std::format("{}|0|0", g_server_data.server).c_str(),
+        pPeer->user_id,
+        std::format("{}|0|0", gServer_data.server).c_str(),
         1,
-        growid.c_str()
+        pPeer->ltoken[0].c_str()
     }); // @note  PACKET_DISCONNECT
 }

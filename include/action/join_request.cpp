@@ -26,10 +26,11 @@ void action::join_request(ENetEvent& event, const std::string& header, const std
         
         auto it = std::ranges::find(worlds, big_name, &::world::name);
         if (it == worlds.end()) 
-            it = worlds.emplace(it, big_name); 
-            
-        ::world &world = *it; // @note ::world will load from SQL if found. next line, if not.
-        if (world.name.empty()) generate_world(world, big_name); // @note make a new world if not found.
+        {
+            it = worlds.emplace(it, big_name);
+            generate_world(*it, big_name);
+        }
+        ::world &world = *it;
 
         std::vector<std::string> buffs{};
         {

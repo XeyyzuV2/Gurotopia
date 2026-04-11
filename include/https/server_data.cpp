@@ -4,7 +4,7 @@
 
 #include "server_data.hpp"
 
-::server_data g_server_data{};
+::server_data gServer_data{};
 
 ::server_data init_server_data()
 {

@@ -58,19 +58,29 @@ enum pstate : int
 
 class peer {
 public:
-    peer& read(const std::string& name);
+    bool exists(const std::string& growid);
 
-    bool exists(const std::string& name); // @note check if peer exists in database
+    template<typename T>
+    void mysql_insert(const std::string& column, const T& value);
 
-    int netid{ 0 }; // @note peer's netid is world identity. this will be useful for many packet sending
+    template<typename T>
+    void mysql_update(const std::string& column, const T& value);
+
+    template<typename T>
+    T    mysql_select(const std::string &column, const char *arg = "");
+    void mysql_select_all();
+
     int user_id{}; // @note unqiue user id.
     std::array<std::string, 2zu> ltoken{}; // @note {growid, password}
-    std::string game_version{};
-    std::string country{};
-    std::string prefix{ "w" }; // @note display name color, default: "w" (White)
+    std::time_t created_at{}; // @note when inserted in SQL (account age)
     u_char role{};
     std::array<float, 10zu> clothing{}; // @note peer's clothing {id, clothing::}
     u_char punch_effect{}; // @note last equipped clothing that has a effect. supporting 0-255 effects.
+
+    int netid{}; // @note peer's netid is world identity. this will be useful for many packet sending
+    std::string prefix{ 'w'  }; // @note display name color, default: "w" (White)
+    std::string game_version{};
+    std::string country{};
 
     u_int skin_color{ 2527912447 };
     int hair_color = 0xffffffff; // @note BGRA
@@ -113,8 +123,6 @@ public:
 
     u_short fires_removed{};
     u_short gbc_pity{}; // @note GBC pity; for each 100 will receive super GBC
-    
-    ~peer();
 };
 
 extern ENetHost* host;

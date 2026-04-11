@@ -39,16 +39,6 @@ void edit(ENetEvent& event, const std::string_view text)
     });
     if (!is_online)
     {
-        if (!::peer().exists(name))
-        {
-            packet::create(*event.peer, false, 0, { "OnConsoleMessage", "`4player doesn't exist``" });
-            return;
-        }
-        peer &offline = ::peer().read(name);
-
-        packet::create(*event.peer, false, 0, {
-            "OnDialogRequest",
-            std::vformat(fmt, std::make_format_args(name, "`sOffline", offline.role, offline.level.front(), offline.gems, is_online)).c_str()
-        });
+        // @todo
     }
 }

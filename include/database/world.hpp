@@ -94,6 +94,7 @@ class world
 {
 public:
     world(const std::string& name = "");
+
     std::string name{};
 
     int owner{ 00 }; // @note owner of world using peer's user id.
@@ -113,7 +114,6 @@ public:
     std::vector<::random_block> random_blocks{};
 
     ::pos 现weather{0, 0};
-    ~world();
 };
 extern std::vector<world> worlds;
 

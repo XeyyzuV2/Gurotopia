@@ -22,11 +22,10 @@ jobs:
           install: >-
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-openssl
-            mingw-w64-ucrt-x86_64-sqlite
             make
             
       - if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install build-essential libssl-dev openssl sqlite3
+        run: sudo apt-get update && sudo apt-get install build-essential libssl-dev libmariadb-dev
 
         
       - if: matrix.os == 'windows-latest'

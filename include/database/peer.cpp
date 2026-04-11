@@ -1,13 +1,85 @@
 #include "pch.hpp"
+#include "database.hpp"
 #include "items.hpp"
 #include "world.hpp"
 #include "on/SetClothing.hpp"
 #include "on/CountryState.hpp"
 #include "commands/punch.hpp"
+#include "tools/string.hpp"
 
 #include "peer.hpp"
 
 using namespace std::chrono;
+
+bool peer::exists(const std::string& growid)
+{
+    ::hStmt hStmt{ "SELECT 1 FROM peer WHERE growid = ? LIMIT 1" };
+
+    MYSQL_BIND param = make_bind_in(growid);
+    mysql_stmt_bind_param(hStmt.pStmt, &param);
+    mysql_stmt_execute(hStmt.pStmt);
+
+    return (!mysql_stmt_store_result(hStmt.pStmt) && mysql_stmt_num_rows(hStmt.pStmt) > 0);
+}
+
+template<typename T>
+void peer::mysql_insert(const std::string& column, const T& value)
+{
+    ::hStmt hStmt{ std::format("INSERT INTO peer ({}) VALUES (?)", column).c_str() };
+
+    MYSQL_BIND param = make_bind_in(value);
+    mysql_stmt_bind_param(hStmt.pStmt, &param);
+    mysql_stmt_execute(hStmt.pStmt);
+}
+template void peer::mysql_insert<signed>(const std::string&, const signed&);
+template void peer::mysql_insert<unsigned>(const std::string&, const unsigned&);
+template void peer::mysql_insert<float>(const std::string&, const float&);
+template void peer::mysql_insert<std::string>(const std::string&, const std::string&);
+
+template<typename T>
+void peer::mysql_update(const std::string& column, const T& value)
+{
+    ::hStmt hStmt{ std::format("UPDATE peer SET {} = ? WHERE growid = ?", column).c_str() };
+
+    MYSQL_BIND params[2] = {};
+    params[0] = make_bind_in(value);
+    params[1] = make_bind_in(this->ltoken[0]);
+    mysql_stmt_bind_param(hStmt.pStmt, params);
+    mysql_stmt_execute(hStmt.pStmt);
+}
+template void peer::mysql_update<signed>(const std::string&, const signed&);
+template void peer::mysql_update<unsigned>(const std::string&, const unsigned&);
+template void peer::mysql_update<float>(const std::string&, const float&);
+template void peer::mysql_update<std::string>(const std::string&, const std::string&);
+
+template<typename T>
+T peer::mysql_select(const std::string &column, const char *arg)
+{
+    T value{};
+    ::hStmt hStmt{ std::format("SELECT {}({}) FROM peer WHERE growid = ? LIMIT 1", arg, column).c_str() };
+
+    MYSQL_BIND param = make_bind_in(this->ltoken[0]);
+    mysql_stmt_bind_param(hStmt.pStmt, &param);
+
+    MYSQL_BIND result = make_bind_out(value);
+    mysql_stmt_bind_result(hStmt.pStmt, &result);
+
+    mysql_stmt_execute(hStmt.pStmt);
+    mysql_stmt_fetch(hStmt.pStmt);
+    return value;
+}
+template signed peer::mysql_select<signed>(const std::string&, const char *);
+template unsigned peer::mysql_select<unsigned>(const std::string&, const char *);
+template float peer::mysql_select<float>(const std::string&, const char *);
+template std::string peer::mysql_select<std::string>(const std::string&, const char *);
+
+void peer::mysql_select_all()
+{
+    this->user_id    = this->mysql_select<signed>("uid");
+    this->ltoken[0]  = this->mysql_select<std::string>("growid");
+    this->ltoken[1]  = this->mysql_select<std::string>("password");
+    this->created_at = this->mysql_select<std::time_t>("created_at", "UNIX_TIMESTAMP");
+}
 
 short peer::emplace(slot s) 
 {
@@ -70,148 +142,6 @@ void peer::update_effects()
     }
 }
 
-class peer_db {
-private:
-    sqlite3 *db;
-
-    void sqlite3_bind(sqlite3_stmt* stmt, int i, int value)                { sqlite3_bind_int(stmt, i, value); }
-    void sqlite3_bind(sqlite3_stmt* stmt, int i, const std::string& value) { sqlite3_bind_text(stmt, i, value.c_str(), -1, SQLITE_STATIC); }
-public:
-    peer_db() {
-        sqlite3_open("db/peers.db", &db);
-        create_tables();
-    }~peer_db() { sqlite3_close(db); }
-    
-    void create_tables() 
-    {
-        const char *sql = 
-        "CREATE TABLE IF NOT EXISTS peers (_n TEXT PRIMARY KEY, role INTEGER, gems INTEGER, lvl INTEGER, xp INTEGER);"
-        "CREATE TABLE IF NOT EXISTS slots (_n TEXT, i INTEGER, c INTEGER, FOREIGN KEY(_n) REFERENCES peers(_n));"
-        "CREATE TABLE IF NOT EXISTS equip (_n TEXT, i INTEGER, FOREIGN KEY(_n) REFERENCES peers(_n));";
-
-        sqlite3_exec(db, sql, nullptr, nullptr, nullptr);
-    }
-    
-    template<typename T>
-    void execute(const char* sql, T binder) 
-    {
-        sqlite3_stmt* stmt;
-        if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-            binder(stmt);
-            sqlite3_step(stmt);
-            sqlite3_finalize(stmt);
-        }
-    }
-    
-    template<typename T>
-    void query(const char* sql, T &&fun, const std::string &name) 
-    {
-        sqlite3_stmt* stmt;
-        if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) 
-        {
-            sqlite3_bind(stmt, 1, name);
-            
-            while (sqlite3_step(stmt) == SQLITE_ROW) 
-            {
-                fun(stmt);
-            }
-            sqlite3_finalize(stmt);
-        }
-    }
-    
-    void begin_transaction() { sqlite3_exec(db, "BEGIN TRANSACTION", nullptr, nullptr, nullptr); }
-    
-    void commit()            { sqlite3_exec(db, "COMMIT", nullptr, nullptr, nullptr); }
-};
-
-peer& peer::read(const std::string& name) 
-{
-    peer_db db;
-    
-    db.query("SELECT role, gems, lvl, xp FROM peers WHERE _n = ?", [this](sqlite3_stmt* stmt) 
-    {
-        this->role = static_cast<u_char>(sqlite3_column_int(stmt, 0));
-        this->gems = sqlite3_column_int(stmt, 1);
-        this->level[0] = static_cast<u_short>(sqlite3_column_int(stmt, 2));
-        this->level[1] = static_cast<u_short>(sqlite3_column_int(stmt, 3));
-    }, name);
-    
-    db.query("SELECT i, c FROM slots WHERE _n = ?", [this](sqlite3_stmt* stmt) 
-    {
-        this->slots.emplace_back(
-            sqlite3_column_int(stmt, 0),
-            sqlite3_column_int(stmt, 1)
-        );
-    }, name);
-
-    u_short i{};
-    db.query("SELECT i FROM equip WHERE _n = ?", [this, &i](sqlite3_stmt* stmt) 
-    {
-        this->clothing[i] = sqlite3_column_int(stmt, 0);
-        ++i;
-    }, name);
-    
-    this->update_effects();
-    return *this;
-}
-
-bool peer::exists(const std::string& name)
-{
-    peer_db db;
-    bool found = false;
-
-    db.query("SELECT 1 FROM peers WHERE _n = ? LIMIT 1", [&found](sqlite3_stmt*)
-    {
-        found = true;
-    }, name);
-
-    return found;
-}
-
-peer::~peer() 
-{
-    if (this->ltoken[0].empty() && this->user_id == 0) return;
-    
-    peer_db db;
-    db.begin_transaction();
-    
-    db.execute("INSERT OR REPLACE INTO peers (_n, role, gems, lvl, xp) VALUES (?, ?, ?, ?, ?)", [this](sqlite3_stmt* stmt) 
-    {
-        sqlite3_bind_text(stmt, 1, this->ltoken[0].c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_int(stmt,  2, this->role);
-        sqlite3_bind_int(stmt,  3, this->gems);
-        sqlite3_bind_int(stmt,  4, this->level[0]);
-        sqlite3_bind_int(stmt,  5, this->level[1]);
-    });
-    
-    db.execute("DELETE FROM slots WHERE _n = ?", [this](auto stmt) {
-        sqlite3_bind_text(stmt, 1, this->ltoken[0].c_str(), -1, SQLITE_STATIC);
-    });
-    for (const ::slot &slot : this->slots) 
-    {
-        if (slot.count <= 0) continue;
-        db.execute("INSERT INTO slots (_n, i, c) VALUES (?, ?, ?)", [this, &slot](sqlite3_stmt* stmt) 
-        {
-            sqlite3_bind_text(stmt, 1, this->ltoken[0].c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_int(stmt,  2, slot.id);
-            sqlite3_bind_int(stmt,  3, slot.count);
-        });
-    }
-
-    db.execute("DELETE FROM equip WHERE _n = ?", [this](auto stmt) {
-        sqlite3_bind_text(stmt, 1, this->ltoken[0].c_str(), -1, SQLITE_STATIC);
-    });
-    for (const float &cloth : this->clothing)
-    {
-        db.execute("INSERT INTO equip (_n, i) VALUES (?, ?)", [this, &cloth](sqlite3_stmt* stmt) 
-        {
-            sqlite3_bind_text(stmt, 1, this->ltoken[0].c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_int(stmt,  2, cloth);
-        });
-    }
-    db.commit();
-}
-
 ENetHost *host;
 
 std::vector<ENetPeer*> peers(const std::string &world, peer_condition condition, std::function<void(ENetPeer&)> fun)
@@ -237,11 +167,6 @@ std::vector<ENetPeer*> peers(const std::string &world, peer_condition condition,
 void safe_disconnect_peers(int code)
 {
     puts("killing gurotopia...");
-    if (!host)
-    {
-        puts("killed gurotopia safely!");
-        return;
-    }
 
     for (ENetPeer &p : std::span(host->peers, host->peerCount))
         if (p.state == ENET_PEER_STATE_CONNECTED)

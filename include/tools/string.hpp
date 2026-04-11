@@ -26,9 +26,6 @@ extern bool alnum(const std::string& str);
 
 extern std::string base64_decode(const std::string& encoded);
 
-// @todo downgrade to a int (4 bit)
-extern std::size_t fnv1a(const std::string& value) noexcept;
-
 /* 
     @return '1' (true) || '0' (false) 
 */

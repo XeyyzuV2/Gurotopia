@@ -18,7 +18,6 @@ void action::tankIDName(ENetEvent& event, const std::string& header)
         else if (pipes[i] == "country")      pPeer->country = pipes[i+1];
         else if (pipes[i] == "user")         pPeer->user_id = std::stoi(pipes[i+1]); // @todo validate user_id
     }
-    pPeer->read(pPeer->ltoken[0]);
 
     packet::create(*event.peer, false, 0, { "OnOverrideGDPRFromServer", 18, 1, 0, 1 });
     packet::create(*event.peer, false, 0, { "OnSetRoleSkinsAndTitles", "000000", "000000" });

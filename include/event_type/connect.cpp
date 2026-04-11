@@ -15,7 +15,8 @@ void _connect(ENetEvent& event)
     }
     else 
     {
-        enet_peer_send(event.peer, 0, enet_packet_create((enet_uint8[4]){ 01 }, 4, ENET_PACKET_FLAG_RELIABLE));
+        const enet_uint8 connect[4] = { 0x01, 0x00, 0x00, 0x00 };
+        enet_peer_send(event.peer, 0, enet_packet_create(connect, std::size(connect), ENET_PACKET_FLAG_RELIABLE));
 
         event.peer->data = new peer();
     }

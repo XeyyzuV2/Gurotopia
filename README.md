@@ -16,10 +16,11 @@
 ### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/archive.svg) 1. Requirements
    - [**MSYS2**](https://www.msys2.org/)
    - [**Visual Studio Code**](https://code.visualstudio.com/): install [C/C++ extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) for VSCode
-   - [**MariaDB Server**](https://mariadb.org/download/?t=mariadb&p=mariadb&r=11.8.6&os=windows&cpu=x86_64&pkg=msi&mirror=accretive)
+   - [**MariaDB Server**](https://mariadb.org/download/?t=mariadb&p=mariadb&r=12.2.2&os=windows&cpu=x86_64&pkg=msi&mirror=accretive)
 
 ### 2. Setup MSYS2
-   - Locate your MSYS2 folder (e.g., `C:\msys64`), open `ucrt64.exe`, and run the following command:
+   - Locate your MSYS2 folder at `C:\msys64`, open `ucrt64.exe`, and run the following command:
+   
      ```bash
      pacman -S --needed mingw-w64-ucrt-x86_64-{gcc,openssl} make
      ```
@@ -56,12 +57,14 @@
 
 ### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/build.svg) 2. Compile
    - Navigate to the project's root directory in your terminal and run the `make` command:
+   
      ```bash
      make -j$(nproc)
      ```
 
 ### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/debug-alt-small.svg) 3. Run
    - Execute the compiled binary located in the `main` directory:
+   
      ```bash
      ./main.out
      ```

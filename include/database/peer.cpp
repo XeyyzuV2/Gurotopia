@@ -5,6 +5,7 @@
 #include "on/SetClothing.hpp"
 #include "on/CountryState.hpp"
 #include "commands/punch.hpp"
+#include "tools/string.hpp"
 
 #include "peer.hpp"
 
@@ -78,12 +79,12 @@ void peer::mysql_select_all()
     this->created_at = this->mysql_select<std::time_t>("created_at", "UNIX_TIMESTAMP");
 }
 
-short peer::emplace(slot s) 
+u_short peer::emplace(::slot slot) 
 {
-    if (auto it = std::ranges::find(this->slots, s.id, &::slot::id); it != this->slots.end()) 
+    if (auto it = std::ranges::find(this->slots, slot.id, &::slot::id); it != this->slots.end()) 
     {
-        short excess = std::max(0, (it->count + s.count) - 200);
-        it->count = std::min(it->count + s.count, 200);
+        u_short excess = std::max(0, (it->count + slot.count) - 200);
+        it->count = std::min(it->count + slot.count, 200);
         if (it->count == 0)
         {
             auto item = std::ranges::find(items, it->id, &::item::id);
@@ -91,7 +92,7 @@ short peer::emplace(slot s)
         }
         return excess;
     }
-    else this->slots.emplace_back(std::move(s)); // @note no such item in inventory, so we create a new entry.
+    else this->slots.emplace_back(std::move(slot)); // @note no such item in inventory, so we create a new entry.
     return 0;
 }
 
@@ -178,43 +179,47 @@ void safe_disconnect_peers(int code)
 
 state get_state(const std::vector<u_char> &&packet) 
 {
-    const int *_4bit = reinterpret_cast<const int*>(packet.data());
-    const float *_4bit_f = reinterpret_cast<const float*>(packet.data());
+    const int     *i32   = reinterpret_cast<const int*>(packet.data());
+    const u_short *u_i32 = reinterpret_cast<const u_short*>(packet.data());
+    const float   *f_i32 = reinterpret_cast<const float*>(packet.data());
+
     return state{
-        .type = _4bit[1],
-        .netid = _4bit[2],
-        .uid = _4bit[3],
-        .peer_state = _4bit[4],
-        .count = _4bit_f[5],
-        .id = _4bit[6],
-        .pos = ::pos{_4bit_f[7], _4bit_f[8]},
-        .speed = ::pos{_4bit_f[9], _4bit_f[10]},
-        .idk = _4bit[11],
-        .punch = ::pos{_4bit[12], _4bit[13]},
-        .size = _4bit[14]
+        .type = i32[1],
+        .netid = i32[2],
+        .uid = i32[3],
+        .peer_state = i32[4],
+        .count = f_i32[5],
+        .id = i32[6],
+        .pos = ::pos{f_i32[7], f_i32[8]},
+        .speed = ::pos{f_i32[9], f_i32[10]},
+        .idk = i32[11],
+        .punch = ::pos{i32[12], i32[13]},
+        .size = u_i32[14]
     };
 }
 
 std::vector<u_char> compress_state(const state &state) 
 {
     std::vector<u_char> data(sizeof(::state) + 1, 0x00);
-    int *_4bit = reinterpret_cast<int*>(data.data());
-    float *_4bit_f = reinterpret_cast<float*>(data.data());
-    _4bit[0] = state.packet_create;
-    _4bit[1] = state.type;
-    _4bit[2] = state.netid;
-    _4bit[3] = state.uid;
-    _4bit[4] = state.peer_state;
-    _4bit_f[5] = state.count;
-    _4bit[6] = state.id;
-    _4bit_f[7] = state.pos.x;
-    _4bit_f[8] = state.pos.y;
-    _4bit_f[9] = state.speed.x;
-    _4bit_f[10] = state.speed.y;
-    _4bit[11] = state.idk;
-    _4bit[12] = state.punch.x;
-    _4bit[13] = state.punch.y;
-    _4bit[14] = state.size;
+    int   *i32   = reinterpret_cast<int*>(data.data());
+    u_int *u_i32 = reinterpret_cast<u_int*>(data.data());
+    float *f_i32 = reinterpret_cast<float*>(data.data());
+
+    i32[0] = state.packet_create;
+    i32[1] = state.type;
+    i32[2] = state.netid;
+    i32[3] = state.uid;
+    i32[4] = state.peer_state;
+    f_i32[5] = state.count;
+    i32[6] = state.id;
+    f_i32[7] = state.pos.x;
+    f_i32[8] = state.pos.y;
+    f_i32[9] = state.speed.x;
+    f_i32[10] = state.speed.y;
+    i32[11] = state.idk;
+    i32[12] = state.punch.x;
+    i32[13] = state.punch.y;
+    u_i32[14] = state.size;
     return data;
 }
 
@@ -231,12 +236,12 @@ void send_inventory_state(ENetEvent &event)
     std::size_t size = pPeer->slots.size();
     data.resize(data.size() + 5zu + (size * sizeof(int)));
 
-    int *_4bit = reinterpret_cast<int*>(&data[58zu]);
+    int *i32 = reinterpret_cast<int*>(&data[58zu]);
 
-    *_4bit++ = std::byteswap<int>(pPeer->slot_size);
-    *_4bit++ = std::byteswap<int>(size);
+    *i32++ = std::byteswap<int>(pPeer->slot_size);
+    *i32++ = std::byteswap<int>(size);
     for (const ::slot &slot : pPeer->slots)
-        *_4bit++ = slot.id | (slot.count & 0xff) << 16;
+        *i32++ = slot.id | (slot.count & 0xff) << 16;
 
 	enet_peer_send(event.peer, 0, enet_packet_create(data.data(), data.size(), ENET_PACKET_FLAG_RELIABLE));
 }

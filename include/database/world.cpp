@@ -44,7 +44,7 @@ void tile_apply_damage(ENetEvent& event, state state, block &block, u_int value)
 	state_visuals(*event.peer, std::move(state));
 }
 
-short modify_item_inventory(ENetEvent& event, ::slot slot)
+u_short modify_item_inventory(ENetEvent& event, ::slot slot)
 {   
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
 

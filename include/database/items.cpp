@@ -28,7 +28,7 @@ void data_modify(std::vector<u_char> &data, const u_int &pos, const T &value)
 
 void decode_items()
 {
-    const int size = std::filesystem::file_size("items.dat");
+    const u_int size = std::filesystem::file_size("items.dat");
     im_data = compress_state(::state{
         .type = 0x10, 
         .peer_state = 0x08, 
@@ -40,12 +40,12 @@ void decode_items()
         .read(reinterpret_cast<char*>(&im_data[sizeof(::state)]), size); // @note the binary data···
 
     u_int pos{ sizeof(::state) };
-    u_char version{};
-    shift_pos(im_data, pos, version); pos += 1; // @note downsize 'version' to 1 bit
-    u_short count{};
-    shift_pos(im_data, pos, count); pos += 2; // @note downside count to 2 bit
+    u_short version{};
+    shift_pos(im_data, pos, version);
+    u_int count{};
+    shift_pos(im_data, pos, count);
     const std::string_view token{"PBG892FXX982ABC*"};
-    for (u_short i = 0; i < count; ++i)
+    for (u_int i = 0; i < count; ++i)
     {
         ::item im;
         
@@ -136,48 +136,49 @@ void decode_items()
 
         pos += sizeof(std::array<u_char, 80zu>);
 
-        if (version >= 11) // @date February 2019
+        if (version >= 11u) // @date February 2019
         {
             pos += *(reinterpret_cast<short*>(&im_data[pos]));
             pos += sizeof(short);
         }
-        if (version >= 12) // @date October 2020
+        if (version >= 12u) // @date October 2020
         {
             pos += sizeof(int);
             pos += sizeof(std::array<u_char, 9zu>);
         }
-        if (version >= 13) pos += sizeof(int); // @date May 2021
-        if (version >= 14) pos += sizeof(int); // @date October 2021
-        if (version >= 15)
+        if (version >= 13u) pos += sizeof(int); // @date May 2021
+        if (version >= 14u) pos += sizeof(int); // @date October 2021
+        if (version >= 15u)
         {
             pos += sizeof(std::array<u_char, 25zu>);
             pos += *(reinterpret_cast<short*>(&im_data[pos]));
             pos += sizeof(short);
         }
-        if (version >= 16)
+        if (version >= 16u)
         {
             pos += *(reinterpret_cast<short*>(&im_data[pos]));
             pos += sizeof(short);
         }
-        if (version >= 17) pos += sizeof(int); // @date April 2024
-        if (version >= 18) pos += sizeof(int); // @date December 2024
-        if (version >= 19) pos += sizeof(std::array<u_char, 9zu>);
-        if (version >= 21) pos += sizeof(short); // @date September 2025
-        if (version >= 22)
+        if (version >= 17u) pos += sizeof(int); // @date April 2024
+        if (version >= 18u) pos += sizeof(int); // @date December 2024
+        if (version >= 19u) pos += sizeof(std::array<u_char, 9zu>);
+        if (version >= 21u) pos += sizeof(short); // @date September 2025
+        if (version >= 22u)
         {
             len = *reinterpret_cast<short*>(&im_data[pos]);
             pos += sizeof(short);
             im.info.assign(reinterpret_cast<char*>(&im_data[pos]), len);
             pos += len;
         }
-        if (version >= 23) 
+        if (version >= 23u) 
         {
             shift_pos(im_data, pos, im.splice[0]);
             shift_pos(im_data, pos, im.splice[1]);
         }
-        if (version == 24) pos += sizeof(u_char); // @date December 2025
-
+        if (version >= 24u) pos += sizeof(u_char); // @date December 2025
+        if (version == 25u) pos += sizeof(std::array<u_char, 6zu>);
+        
         items.emplace_back(im);
     }
-    std::printf("parsed %zu items; %zu KB of stack memory\n", items.size(), (items.size() * sizeof(item)) / 1024);
+    printf("items.dat parsed successfully!\n");
 }

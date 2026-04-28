@@ -13,9 +13,8 @@ jobs:
     steps:
       - uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # 2026-1-9
       
-      
       - if: matrix.os == 'windows-latest'
-        uses: msys2/setup-msys2@4f806de0a5a7294ffabaff804b38a9b435a73bda # v2.30.0
+        uses: msys2/setup-msys2@e9898307ac31d1a803454791be09ab9973336e1c # v2.31.1
         with:
           msystem: UCRT64
           update: true
@@ -27,7 +26,6 @@ jobs:
       - if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install build-essential libssl-dev libmariadb-dev
 
-        
       - if: matrix.os == 'windows-latest'
         run: make -j$(nproc)
         shell: msys2 {0}

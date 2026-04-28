@@ -4,7 +4,8 @@ enum holiday : u_char
 {
     H_NONE,
     H_VALENTINES,
-    H_PATRICKS
+    H_PATRICKS,
+    H_G4G = 18
 };
 extern u_char holiday;
 

@@ -127,7 +127,7 @@ extern void tile_apply_damage(ENetEvent &event, state state, block &block, u_int
 * @brief set slot::count to nagative value if you want to remove an amount. 
 * @return the remaining amount if exeeds 200. e.g. emplace(slot{0, 201}) returns 1.
 */
-extern short modify_item_inventory(ENetEvent& event, ::slot slot);
+extern u_short modify_item_inventory(ENetEvent& event, ::slot slot);
 
 extern int item_change_object(ENetEvent& event, ::slot slot, const ::pos& pos, signed uid = 0);
 

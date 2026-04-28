@@ -11,7 +11,7 @@ struct slot {
 
 /* x, y */
 struct pos {
-    pos() = default;
+    pos() = default; // @todo
     pos(float _x, float _y) : x(_x), y(_y) {}
     pos(int _x, int _y)     : x(_x), y(_y) {}
 
@@ -100,7 +100,7 @@ public:
     * @brief set slot::count to nagative value if you want to remove an amount. 
     * @return the remaining amount if exeeds 200. e.g. emplace(slot{0, 201}) returns 1.
     */
-    short emplace(slot s);
+    u_short emplace(::slot slot);
     std::vector<short> fav{};
 
     signed gems{0};
@@ -154,7 +154,7 @@ public:
     ::pos speed{}; // @note player movement (velocity(x), gravity(y)), higher gravity = smaller jumps
     int idk{};
     ::pos punch{}; // @note punching/placing position 2D {x, y}
-    int size{};
+    u_int size{};
 };
 
 enum packet_pos

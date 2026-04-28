@@ -1,6 +1,6 @@
 /*
     @copyright gurotopia (c) 2024-05-25
-    @version perent SHA: c0d71088a905a323daa98a689ecdeeebb07f92db 2026-4-11
+    @version perent SHA: f9eef5bfe9b7fb30c3bf1f0af0ff328f7ae7c039 2026-4-28
 */
 #include "include/pch.hpp"
 #include "include/event_type/__event_type.hpp"
@@ -14,7 +14,7 @@
 #include <csignal>
 
 volatile sig_atomic_t gSignal = 0;
-static void request_shutdown(int signal) { gSignal = signal; }
+static void request_shutdown(sig_atomic_t signal) { gSignal = signal; }
 
 int main()
 {

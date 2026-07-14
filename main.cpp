@@ -40,7 +40,12 @@ int main()
             .port = gServer_data.port
         };
 
-        host = enet_host_create (ENET_ADDRESS_TYPE_IPV4, &address, 50zu/* max peer count */, 2zu, 0, 0);
+        host = enet_host_create(ENET_ADDRESS_TYPE_IPV4, &address, 50zu/* max peer count */, 2zu, 0, 0);
+        if (!host)
+        {
+            std::fprintf(stderr, "enet_host_create failed — could not bind to port %hu\n", gServer_data.port);
+            return 1;
+        }
         std::thread(&https::listener).detach();
     } // @note delete address
     host->usingNewPacketForServer = true;

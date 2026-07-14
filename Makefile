@@ -22,8 +22,12 @@ SOURCES := main.cpp \
 OBJECTS := $(SOURCES:%.cpp=$(BUILD_DIR)/%.o)
 DEPS := $(OBJECTS:.o=.d)
 
-$(OUTPUT): $(OBJECTS)
+$(OUTPUT): $(OBJECTS) resources/ctx/server.key
 	$(CXX) $(OBJECTS) -o $@ $(LIBS)
+
+# auto-generate TLS cert + key if missing
+resources/ctx/server.key:
+	@$(SHELL) scripts/gen-cert.sh
 
 $(BUILD_DIR)/pch.gch: include/pch.hpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -Iinclude -x c++-header $< -o $@

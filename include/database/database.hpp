@@ -1,8 +1,10 @@
 #pragma once
 
 #include <mysql/mysql.h>
+#include <mutex>
 
 extern MYSQL *db;
+extern std::mutex db_mutex; // @note serialises DB access across threads (main loop + HTTPS)
 
 extern void mysql_connect();
 
@@ -15,6 +17,7 @@ public:
     hStmt           (const hStmt&) = delete;
     hStmt& operator=(const hStmt&) = delete;
 
+    std::lock_guard<std::mutex> lock; // @note acquired before any stmt work (declared first so init order matches)
     MYSQL_STMT *pStmt;
 };
 

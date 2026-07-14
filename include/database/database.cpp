@@ -4,6 +4,7 @@
 #include "database_config.hpp"
 
 MYSQL *db;
+std::mutex db_mutex;
 
 void create_table_if_not_exist()
 {
@@ -15,7 +16,7 @@ void create_table_if_not_exist()
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     )";
-    
+
     /* world table */
 
     if (mysql_query(db, query.c_str()))
@@ -36,19 +37,21 @@ void mysql_connect()
 {
     db = mysql_init(NULL);
 
-    if (!mysql_real_connect(db, gDb_config.host.c_str(), gDb_config.user.c_str(), (gDb_config.password.empty()) ? NULL : gDb_config.password.c_str(), NULL, 3306u, NULL, 0u)) 
+    if (!mysql_real_connect(db, gDb_config.host.c_str(), gDb_config.user.c_str(), (gDb_config.password.empty()) ? NULL : gDb_config.password.c_str(), NULL, 3306u, NULL, 0u))
     {
         fprintf(stderr, "%s\n", mysql_error(db));
     }
     else printf("connected to SQL server on %s:%d\n", db->host, db->port);
 
+    std::lock_guard<std::mutex> guard(db_mutex);
     mysql_query(db, "CREATE DATABASE IF NOT EXISTS gurotopia");
     mysql_select_db(db, "gurotopia");
 
+    // @note table creation + migration runs inside the same lock section
     create_table_if_not_exist();
 }
 
-hStmt::hStmt(const std::string &query)
+hStmt::hStmt(const std::string &query) : lock(db_mutex)
 {
     this->pStmt = mysql_stmt_init(db);
     if (!pStmt) 

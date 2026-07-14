@@ -10,3 +10,6 @@ database.cfg
 
 # VSC user settings
 .vscode/settings.json
+
+# TLS — auto-generated for local dev, do not commit
+resources/ctx/server.key

@@ -11,12 +11,16 @@
 #include "action/join_request.hpp"
 #include "item_activate_object.hpp"
 
+#include "items/registry.hpp"
+#include "items/properties.hpp"
+#include "items/collision.hpp"
+
 #include "tile_change.hpp"
 
 using namespace std::chrono;
-using namespace std::literals::chrono_literals; // @note for 'ms' 's' (millisec, seconds)
+using namespace std::literals::chrono_literals;
 
-void tile_change(ENetEvent& event, state state) 
+void tile_change(ENetEvent& event, state state)
 {
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
     try
@@ -29,149 +33,134 @@ void tile_change(ENetEvent& event, state state)
         auto item = std::ranges::find(items, (state.id != 32 && state.id != 18) ? state.id : (block.fg != 0) ? block.fg : block.bg, &::item::id);
         if (item->id == 0) return;
 
-        if (block.state[3] & S_FIRE) // @note allow anyone to take out fire
+        // ---- Fire check (anyone can extinguish) ----
+        if (block.state[3] & S_FIRE)
             if (pPeer->clothing[hand] == 3066/* fire hose */)
             {
                 remove_fire(event, state, block, *world);
-                return; // @note avoid hitting the block
+                return;
             }
 
-        if (!(item->cat & CAT_PUBLIC)) // @note if block is public skip validating if peer is owner or access
+        // ---- Access check ----
+        if (!(item->cat & CAT_PUBLIC))
             if ((world->owner && !world->is_public && !pPeer->role) &&
                 (pPeer->user_id != world->owner && !std::ranges::contains(world->access, pPeer->user_id))) return;
 
-        bool lock_visuals{}; // @todo this looks sloppy
-        
-        if (state.id == 18) // @note punching a block
+        // ====================================================================
+        // MODE: PUNCHING (state.id == 18)
+        // ====================================================================
+        if (state.id == 18)
         {
-            static bool punch{}; // @note true if tile_change has been called within this inital (punch)
-
-            if (!punch) // @note put all multiple punch features here
+            static bool punch{};
+            if (!punch)
             {
                 punch = true;
-                if (pPeer->clothing[hand] == 5480) // @note Rayman's Fist
+                // @note Rayman's Fist multi-punch
+                if (pPeer->clothing[hand] == 5480)
                 {
                     ::state copy_state = state;
+                    int dx = (pPeer->facing_left) ? -1 : 1;
+                    int dy = (state.punch.y == state.pos.by_32(true).y) ? 0
+                           : (state.punch.y < state.pos.by_32(true).y) ? -1 : 1;
 
-                    /* @note up and down */
-                    if (state.punch.y == state.pos.by_32(true).y)
-                    {
-                        copy_state.punch.x += (pPeer->facing_left) ? -1 : 1;
-                        tile_change(event, std::move(copy_state));
-                        
-                        copy_state.punch.x += (pPeer->facing_left) ? -1 : 1;
-                        tile_change(event, std::move(copy_state));
-                    }
-                    /* @note left and right <- -> */
-                    else if (state.punch.x == state.pos.by_32(true).x)
-                    {
-                        copy_state.punch.y += (state.punch.y < state.pos.by_32(true).y) ? -1 : 1;
-                        tile_change(event, std::move(copy_state));
-
-                        copy_state.punch.y += (state.punch.y < state.pos.by_32(true).y) ? -1 : 1;
-                        tile_change(event, std::move(copy_state));
-                    }
-                    /* @note horizontal adjacent \/ */
-                    else if (state.punch.y != state.pos.by_32(true).y)
-                    {
-                        copy_state.punch.x += (pPeer->facing_left) ? -1 : 1;
-                        copy_state.punch.y += (state.punch.y < state.pos.by_32(true).y) ? -1 : 1;
-                        tile_change(event, std::move(copy_state));
-
-                        copy_state.punch.x += (pPeer->facing_left) ? -1 : 1;
-                        copy_state.punch.y += (state.punch.y < state.pos.by_32(true).y) ? -1 : 1;
-                        tile_change(event, std::move(copy_state));
-                    }
+                    copy_state.punch.x += dx; copy_state.punch.y += dy;
+                    tile_change(event, std::move(copy_state));
+                    copy_state.punch.x += dx; copy_state.punch.y += dy;
+                    tile_change(event, std::move(copy_state));
                 }
                 punch = false;
             }
-            ransuu ransuu;
-            u_char apply_damage_value{}; // @note used to change a tile value without using send_tile_update() 
 
-            if (pPeer->clothing[hand] == 2952/*Digger's Spade*/)
+            // ---- Try item-specific behavior registry ----
+            ransuu ransuu;
+            u_char apply_damage_value{};
+            bool registry_handled = false;
+
+            if (auto* handler = item_registry::get_handler(item->id))
             {
-                if(item->id == 2/*Dirt*/ || item->id == 14)
+                item_context ctx{
+                    .pPeer = pPeer,
+                    .world = &*world,
+                    .block = &block,
+                    .item = &*item,
+                    .state = state,
+                    .event = event
+                };
+                auto action = (*handler)(ctx);
+                switch (action)
+                {
+                    case item_action::HANDLED:
+                        registry_handled = true;
+                        break;
+                    case item_action::CANCEL:
+                        return;
+                    case item_action::CONSUME:
+                        modify_item_inventory(event, ::slot(item->id, -1));
+                        return;
+                    default:
+                        break; // NONE = continue
+                }
+            }
+
+            if (registry_handled) return;
+
+            // ---- Digger's Spade ----
+            if (pPeer->clothing[hand] == 2952)
+            {
+                if (item->id == 2 || item->id == 14)
                 {
                     if (block.fg != 0) block.hits[0] = 3;
                     else block.hits[1] = 3;
-    
-                    int color = (item->id ==  2/*Dirt*/) ? ransuu[{0x02, 0x03}]/* @note idk if this is the correct one, at least by looking at the color it looks like dirt*/ : 
-                                  (item->id == 14/*Cave Background*/) ? ransuu[{0x0e, 0x0f}] : 0x02;
 
+                    int color = (item->id == 2) ? ransuu[{0x02, 0x03}] : ransuu[{0x0e, 0x0f}];
                     send_particle_effect(event, {color, 0x61}, state.punch.by_32());
                 }
             }
-            switch (item->id)
-            {
-                case 758: // @note Roulette Wheel
-                {
-                    const u_char number = ransuu[{0, 36}];
-                    const char color = (number == 0) ? '2' : (ransuu[{0, 3}] < 2) ? 'b' : '4';
-                    const std::string message = std::format("[`{}{}`` spun the wheel and got `{}{}``!]", pPeer->prefix, pPeer->growid, color, number);
-                    peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [&event, &pPeer, message](ENetPeer& peer)
-                    {
-                        send_varlist(event.peer, { "OnTalkBubble", pPeer->netid, message }, -1, 2000);
-                        on::ConsoleMessage(event.peer, message, 2000);
-                    });
-                    break;
-                }
-            }
+
+            // ---- Type-based generic behavior (fallback) ----
             switch (item->type)
             {
                 case type::STRONG: throw std::runtime_error("It's too strong to break.");
                 case type::MAIN_DOOR: throw std::runtime_error("(stand over and punch to use)");
                 case type::LOCK:
                 {
-                    if (is_tile_lock(item->id)) break; // @todo seperate area for 'range_lock'
-                    
+                    if (is_tile_lock(item->id)) break;
                     if (world->owner != pPeer->user_id)
-                        throw std::runtime_error(std::format("`5[```w{}`` `$World Locked`` by (null)`5]``", world->name)); // @todo add owner name
+                        throw std::runtime_error(std::format("`5[```w{}`` `$World Locked`` by (null)`5]``", world->name));
                     break;
                 }
                 case type::PROVIDER:
                 {
                     if ((steady_clock::now() - block.tick) / 1s >= item->tick)
                     {
-                        switch (item->id)
+                        // Generic provider: try item-id-specific via registry, fallback to item+2
+                        if (!item_registry::get_handler(item->id))
                         {
-                            case 1008: // @note ATM
+                            switch (item->id)
                             {
-                                u_char gems = ransuu[{1, 100}]; // @note source: https://growtopia.fandom.com/wiki/ATM_Machine
-                                for (short i : {100, 50, 10, 5, 1}/* gem type */)
-                                    for (; gems >= i; gems -= i/* downgrade type */)
-                                        add_drop(event, {112, i}, state.punch.by_32(), *world);
-                                        
-                                break;
-                            }
-                            case 872:/*chicken*/ case 866:/*cow*/ case 1632:/*coffee maker*/ case 3888:/*sheep*/
-                            {
-                                add_drop(event, ::slot(item->id+2, ransuu[{1, 2}]), state.punch.by_32(), *world);
-                                break;
-                            }
-                            case 5116:/*tea set*/
-                            {
-                                add_drop(event, ::slot(item->id-2, ransuu[{1, 2}]), state.punch.by_32(), *world);
-                                break;
-                            }
-                            case 2798:/*well*/
-                            {
-                                add_drop(event, ::slot(822/*water bucket*/, ransuu[{1, 2}]), state.punch.by_32(), *world);
-                                break;
-                            }
-                            case 928:/*science station*/ // @note source: https://growtopia.fandom.com/wiki/Science_Station
-                            {
-                                short chemcial = 
-                                    (!ransuu[{0, 16}]) ? chemcial = 918/*P*/ : 
-                                    (!ransuu[{0, 8}])  ? chemcial = 920/*B*/ : 
-                                    (!ransuu[{0, 6}])  ? chemcial = 924/*Y*/ : 
-                                    (!ransuu[{0, 4}])  ? chemcial = 916/*R*/ : chemcial = 914/*G*/;
-                                add_drop(event, {chemcial, 1}, state.punch.by_32(), *world);
-                                break;
+                                case 872: case 866: case 1632: case 3888:
+                                    add_drop(event, ::slot(item->id+2, ransuu[{1, 2}]), state.punch.by_32(), *world);
+                                    break;
+                                case 5116:
+                                    add_drop(event, ::slot(item->id-2, ransuu[{1, 2}]), state.punch.by_32(), *world);
+                                    break;
+                                case 2798:
+                                    add_drop(event, ::slot(822, ransuu[{1, 2}]), state.punch.by_32(), *world);
+                                    break;
+                                case 928:
+                                {
+                                    short chemcial =
+                                        (!ransuu[{0, 16}]) ? 918 :
+                                        (!ransuu[{0, 8}])  ? 920 :
+                                        (!ransuu[{0, 6}])  ? 924 :
+                                        (!ransuu[{0, 4}])  ? 916 : 914;
+                                    add_drop(event, {chemcial, 1}, state.punch.by_32(), *world);
+                                    break;
+                                }
                             }
                         }
                         block.tick = steady_clock::now();
-                        send_tile_update(event, std::move(state), block, *world); // @note update countdown on provider.
-
+                        send_tile_update(event, std::move(state), block, *world);
                         pPeer->add_xp(event, 1);
                         return;
                     }
@@ -179,22 +168,20 @@ void tile_change(ENetEvent& event, state state)
                 }
                 case type::SEED:
                 {
-                    if ((steady_clock::now() - block.tick) / 1s >= item->tick) // @todo limit this check.
+                    if ((steady_clock::now() - block.tick) / 1s >= item->tick)
                     {
                         block.hits[0] = 99;
-                        add_drop(event, ::slot(item->id - 1, ransuu[{2, 12}]), state.punch.by_32(), *world); // @note fruit (from tree)
+                        add_drop(event, ::slot(item->id - 1, ransuu[{2, 12}]), state.punch.by_32(), *world);
                     }
                     break;
                 }
                 case type::WEATHER_MACHINE:
                 {
                     ::block &weather_machine = world->blocks[cord(world->weather.x, world->weather.y)];
-
-                    if (!(block.state[2] & S_TOGGLE) && !(weather_machine.state[2] & S_TOGGLE)) weather_machine.state[2] &= ~S_TOGGLE; // @note so we can avoid the upcoming ^= if the weather machine is already toggled
-                    block.state[2] ^= S_TOGGLE; // @note if punched twice it can detoggle that is why we use ^= not |=
-                    
+                    if (!(block.state[2] & S_TOGGLE) && !(weather_machine.state[2] & S_TOGGLE))
+                        weather_machine.state[2] &= ~S_TOGGLE;
+                    block.state[2] ^= S_TOGGLE;
                     world->weather = state.punch;
-                    
                     peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [block, item](ENetPeer& p)
                     {
                         send_varlist(&p, { "OnSetCurrentWeather", (block.state[2] & S_TOGGLE) ? get_weather_id(item->id) : 0 });
@@ -206,124 +193,135 @@ void tile_change(ENetEvent& event, state state)
                 case type::CHEST:
                 {
                     block.state[2] ^= S_TOGGLE;
-                    if (item->id == 226) // @note Signal Jammer
+                    if (item->id == 226)
                     {
-                        on::ConsoleMessage(event.peer, (block.state[2] & S_TOGGLE) ? 
-                            "Signal jammer enabled. This world is now `4hidden`` from the universe." :
-                            "Signal jammer disabled.  This world is `2visible`` to the universe.");
+                        on::ConsoleMessage(event.peer,
+                            (block.state[2] & S_TOGGLE)
+                                ? "Signal jammer enabled. This world is now `4hidden`` from the universe."
+                                : "Signal jammer disabled.  This world is `2visible`` to the universe.");
                     }
                     break;
                 }
                 case type::RANDOM:
                 {
-                    apply_damage_value = 
-                        (item->id == 456/*Dice*/) ? ransuu[{0, 5}] : 
-                        (item->id == 1300/*Roshambo*/) ? ransuu[{1, 3}] : 0;
+                    apply_damage_value =
+                        (item->id == 456) ? ransuu[{0, 5}] :
+                        (item->id == 1300) ? ransuu[{1, 3}] : 0;
 
                     auto random = std::ranges::find(world->random_blocks, state.punch, &::random_block::pos);
                     if (random == world->random_blocks.end())
-                    {
                         world->random_blocks.emplace_back(::random_block{apply_damage_value, state.punch});
-                    }
                     else random->value = apply_damage_value;
                     break;
                 }
             }
+
+            // ---- Damage application ----
             tile_apply_damage(event, std::move(state), block, apply_damage_value);
 
             if (block.hits[0] >= item->hits) block.fg = 0, block.hits[0] = 0;
             else if (block.hits[1] >= item->hits) block.bg = 0, block.hits[1] = 0;
             else return;
-            
-            /* @todo update these changes with tile_update() */
+
+            // ---- Block destruction ----
             block.label = "";
-            block.state[2] = 0x00; // @note reset tile direction
-            block.state[3] &= ~S_VANISH; // @note remove paint
-            
-            if (item->id == 392/*Heartstone*/ || item->id == 3402/*GBC*/ || item->id == 9350/*Super GBC*/)
+            block.state[2] = 0x00;
+            block.state[3] &= ~S_VANISH;
+
+            // Special loot chests (registered via registry in future, keep for now)
+            if (item->id == 392 || item->id == 3402 || item->id == 9350)
             {
                 short reward =
-                    (!ransuu[{0, 99}]) ? 1458 : // @note GHC
-                    (!ransuu[{0, 20}]) ? 362 : // @note Angel Wings
-                    (!ransuu[{0, 8}])  ? 366 : // @note Heartbow
-                    (!ransuu[{0, 8}])  ? 1470 : // @note Ruby Necklace
-                    (!ransuu[{0, 20}]) ? 2384 : // @note Love Bug
-                    (!ransuu[{0, 4}])  ? 2396 : // @note Valensign
-                    (!ransuu[{0, 10}]) ? 3388 : // @note Heartbreaker Hammer
-                    (!ransuu[{0, 10}]) ? 2390 : // @note Teeny Angel Wings
-                    (!ransuu[{0, 10}]) ? 3396 : // @note Lovebird Pendant
-                    (!ransuu[{0, 2}])  ? 3404 : // @note Sour Lollipop
-                    (!ransuu[{0, 4}])  ? 3406 : // @note Sweet Lollipop
-                    (!ransuu[{0, 2}])  ? 3408 : // @note Pink Marble Arch
-                    388; // @note Perfume
-                    // @todo add all the remaining drops - https://growtopia.fandom.com/wiki/Golden_Booty_Chest
+                    (!ransuu[{0, 99}]) ? 1458 :
+                    (!ransuu[{0, 20}]) ? 362 :
+                    (!ransuu[{0, 8}])  ? 366 :
+                    (!ransuu[{0, 8}])  ? 1470 :
+                    (!ransuu[{0, 20}]) ? 2384 :
+                    (!ransuu[{0, 4}])  ? 2396 :
+                    (!ransuu[{0, 10}]) ? 3388 :
+                    (!ransuu[{0, 10}]) ? 2390 :
+                    (!ransuu[{0, 10}]) ? 3396 :
+                    (!ransuu[{0, 2}])  ? 3404 :
+                    (!ransuu[{0, 4}])  ? 3406 :
+                    (!ransuu[{0, 2}])  ? 3408 :
+                    388;
 
                 add_drop(event, ::slot(reward, (reward == 3408 || reward == 3404) ? 10 : 1), state.punch.by_32(), *world);
                 if (reward == 1458)
                 {
                     std::string message = std::format("msg|`4The Power of Love! `2{} found a `#Golden Heart Crystal`2 in a `#{}`2!", pPeer->growid, item->raw_name);
-                    peers(pPeer->recent_worlds.back(), PEER_ALL, [message](ENetPeer &p)
-                    {
-                        send_action(p, "log", message.c_str());
-                    });
+                    peers(pPeer->recent_worlds.back(), PEER_ALL, [message](ENetPeer &p) { send_action(p, "log", message.c_str()); });
                 }
                 if (++pPeer->gbc_pity % 100 == 0) modify_item_inventory(event, ::slot{9350, 1});
             }
             else if (item->type == type::LOCK && !is_tile_lock(item->id))
             {
-                if (!pPeer->role)
-                {
-                    pPeer->prefix.front() = 'w';
-                    on::NameChanged(event);
-                }
-                
-                world->owner = 0; // @todo have a seperate thing for 'range_lock'
+                if (!pPeer->role) { pPeer->prefix.front() = 'w'; on::NameChanged(event); }
+                world->owner = 0;
             }
 
-            if (item->cat == CAT_RETURN)
+            // ---- Property-based break behavior ----
+            if (has_category(*item, static_cast<item_category>(CAT_RETURN)))
             {
                 int uid = add_object(event, ::slot(item->id, 1), state.pos, *world);
                 item_activate_object(event, ::state{.id = uid, .punch = state.punch});
             }
-            else if (u_char(item->property) & 04) { } // @note "This item never drops any seeds."; should it drop a block?
-            else // @note normal break (drop gem, seed, block & give XP)
+            else if (has_property(*item, item_property::PROP_NO_SEED))
+            {
+                // @note property & 04 — "This item never drops any seeds." (silent)
+            }
+            else // normal break: gem + seed drop + XP
             {
                 if (item->type != type::SEED)
-                { /* gem drop */
-                    /* if greater than 1, assume it's a farmable.*/
+                {
                     u_char rarity_to_gem =
-                        (item->rarity >= 87) ? 22 : 
-                        (item->rarity >= 68) ? 18 : 
-                        (item->rarity >= 53) ? 14 : 
-                        (item->rarity >= 41) ? 11 : 
+                        (item->rarity >= 87) ? 22 :
+                        (item->rarity >= 68) ? 18 :
+                        (item->rarity >= 53) ? 14 :
+                        (item->rarity >= 41) ? 11 :
                         (item->rarity >= 36) ? 10 :
                         (item->rarity >= 32) ? 9 :
                         (item->rarity >= 24) ? 5 : 1;
 
-                    if (!ransuu[{0, (rarity_to_gem > 1) ? 1 : 4}]) // @note double chances if farmable.
+                    if (!ransuu[{0, (rarity_to_gem > 1) ? 1 : 4}])
                     {
-                        /* @todo merge gems more effectively */
                         u_char gems = ransuu[{1, rarity_to_gem}];
-                        for (short i : {10, 5, 1}/* gem type */)
-                            for (; gems >= i; gems -= i/* downgrade type */)
+                        for (short i : {10, 5, 1})
+                            for (; gems >= i; gems -= i)
                                 add_drop(event, {112, i}, state.punch.by_32(), *world);
                     }
-                    if (!ransuu[{0, (rarity_to_gem > 1) ? 2 : 4}]) add_drop(event, ::slot(item->id + 1, 1), state.punch.by_32(), *world); 
+                    if (!ransuu[{0, (rarity_to_gem > 1) ? 2 : 4}]) add_drop(event, ::slot(item->id + 1, 1), state.punch.by_32(), *world);
                     else if (!ransuu[{0, (rarity_to_gem > 1) ? 4 : 8}]) add_drop(event, ::slot(item->id, 1), state.punch.by_32(), *world);
-                } /* ~gem drop */
-
+                }
                 pPeer->add_xp(event, std::trunc(1.0f + item->rarity / 5.0f));
             }
-        } // @note delete im, id
-        else if (item->cloth_type != clothing::none) 
-        {
-            if (state.punch != pPeer->pos.by_32(true)) throw std::runtime_error("To wear clothing, use on yourself");
-
-            item_activate(event, state);
-            return; 
         }
-        else if (item->type == type::CONSUMEABLE) 
+        // ====================================================================
+        // MODE: CONSUMABLE / CLOTHING (item held, not fist/wrench)
+        // ====================================================================
+        else if (item->cloth_type != clothing::none)
         {
+            if (state.punch != pPeer->pos.by_32(true))
+                throw std::runtime_error("To wear clothing, use on yourself");
+            item_activate(event, state);
+            return;
+        }
+        else if (item->type == type::CONSUMEABLE)
+        {
+            // Try registry first
+            if (auto* handler = item_registry::get_handler(item->id))
+            {
+                item_context ctx{.pPeer = pPeer, .world = &*world, .block = &block, .item = &*item, .state = state, .event = event};
+                auto action = (*handler)(ctx);
+                if (action != item_action::NONE)
+                {
+                    if (action == item_action::CONSUME)
+                        modify_item_inventory(event, ::slot(item->id, -1));
+                    return;
+                }
+            }
+
+            // Generic consumable handling
             if (item->raw_name.contains(" Blast"))
             {
                 send_varlist(event.peer, {
@@ -334,189 +332,39 @@ void tile_change(ENetEvent& event, state state)
                         "add_label_with_icon|big|`w{1}``|left|{0}|\n"
                         "add_label|small|This item creates a new world! Enter a unique name for it.|left\n"
                         "add_text_input|name|New World Name||24|\n"
-                        "end_dialog|create_blast|Cancel|Create!|\n", // @todo rgt "Create!" is a purple-ish pink color
+                        "end_dialog|create_blast|Cancel|Create!|\n",
                         item->id, item->raw_name
                     )
                 });
             }
 
-            if (item->raw_name.contains("Paint Bucket - ") && pPeer->clothing[hand] != 3494) throw std::runtime_error("you need a Paintbrush to apply paint!");
+            if (item->raw_name.contains("Paint Bucket - ") && pPeer->clothing[hand] != 3494)
+                throw std::runtime_error("you need a Paintbrush to apply paint!");
             if (item->raw_name.contains("Hair Dye"))
             {
                 if (state.punch != pPeer->pos.by_32(true)) throw std::runtime_error("Don't spill your dye!");
-                else if (world->blocks[cord(pPeer->pos.by_32(true).x, pPeer->pos.by_32(true).y)].fg != 230/*Bathtub*/) throw std::runtime_error("You'll make a huge mess if you do that outside the Bathtub!");
-
+                else if (world->blocks[cord(pPeer->pos.by_32(true).x, pPeer->pos.by_32(true).y)].fg != 230)
+                    throw std::runtime_error("You'll make a huge mess if you do that outside the Bathtub!");
                 on::Action(event, "shower");
-                // audio/shower.wav
                 send_varlist(event.peer, { "OnTalkBubble", pPeer->netid, "You dyed your hair!", 0u, 1u });
             }
-            float color{}; // @note the color of the particle effect.
-            float particle{};
-            switch (item->id)
-            {
-                case 1404: // @note Door Mover
-                {
-                    if (!door_mover(*world, state.punch)) throw std::runtime_error("There's no room to put the door there! You need 2 empty spaces vertically.");
 
-                    std::string remember_name = world->name;
-                    peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [&](ENetPeer& p) 
-                    { 
-                        ENetEvent fake{.peer = &p};
-                        action::quit_to_exit(fake, "", true); // @note everyone in world exits
-                        action::join_request(fake, "", remember_name); // @note everyone in world re-joins
-                    });
-                    return;
-                }
-                case 822: // @note Water Bucket
-                {
-                    if (block.state[3] & S_FIRE) remove_fire(event, state, block, *world);
-                    else block.state[3] ^= S_WATER;
-                    break;
-                }
-                case 1866: // @note Block Glue
-                {
-                    block.state[3] ^= S_GLUE;
-                    break;
-                }
-                case 3062: // @note Pocket Lighter
-                {
-                    if (block.fg == 0 && block.bg == 0) throw std::runtime_error("There's nothing to burn!");
-                    if (block.state[3] & (S_FIRE | S_WATER)) return; // @note avoid fire on water & fire on fire
-
-                    block.state[3] |= S_FIRE;
-
-                    std::string message = "`7[```4MWAHAHAHA!! FIRE FIRE FIRE```7]``";
-                    peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [&](ENetPeer& p) 
-                    {
-                        send_varlist(event.peer, { "OnTalkBubble", pPeer->netid, message, 0u });
-                        on::ConsoleMessage(event.peer, message);
-                    });
-                    particle = 0x96;
-
-                    if (block.fg == 3090) // @note Highly Combustible Box
-                    {
-                        block.fg = 3128; // @note Combusted Box
-                        if (!(block.state[2] & S_TOGGLE)/*closed*/) {} // @todo recipes: https://growtopia.fandom.com/wiki/Guide:Highly_Combustible_Box
-                    }
-                    break;
-                }
-                case 3404:/*Sour Lollipop*/ case 3406:/*Sweet Lollipop*/
-                {
-                    send_varlist(event.peer, { "OnTalkBubble", pPeer->netid, "`#YUM!:D", 0u });
-
-                    break;
-                }
-                case 3400: // @note Love Potion #8
-                {
-                    if (block.fg != 10) return; // @note Rock
-
-                    block.fg = 392; // @note Heartstone
-                    particle = 0x2c;
-                    break;
-                }
-                case 1488: // @note Experience Potion
-                {
-                    send_varlist(event.peer, { "OnTalkBubble", pPeer->netid, "`#GULP! You got smarter!", 0u });
-                    pPeer->add_xp(event, 10000);
-                    break;
-                }
-                case 2480: // @note Megaphone
-                {
-                    send_varlist(event.peer, {
-                        "OnDialogRequest",
-                        ::create_dialog()
-                            .set_default_color("`o")
-                            .add_label_with_icon("big", "`wMegaphone``", item->id)
-                            .add_textbox("Enter a message you want to broadcast to every player in Growtopia! This will use up 1 Megaphone")
-                            .add_text_input("message", "", "", 128)
-                            .end_dialog("megaphone", "Nevermind", "Broadcast")
-                    });
-                    break;
-                }
-                case 408: // @note Duct Tape
-                {
-                    peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [&](ENetPeer& p) 
-                    {
-                        ::peer *_p = static_cast<::peer*>(p.data);
-
-                        if (state.punch == _p->pos.by_32(true))
-                        {
-                            _p->state |= S_DUCT_TAPE; // @todo add a 10 minute timer that will remove it.
-                            on::SetClothing(p);
-                        }
-                    });
-                    break;
-                }
-                case 3478: // @note Paint Bucket - Red
-                {
-                    block.state[3] |= S_RED;
-                    color = bgra::RED, particle = 0xa8; 
-                    break;
-                }
-                case 3480: // @note Paint Bucket - Yellow
-                {
-                    block.state[3] |= S_YELLOW;
-                    color = bgra::GREEN | bgra::RED, particle = 0xa8;
-                    break;
-                }
-                case 3482: // @note Paint Bucket - Green
-                {
-                    block.state[3] |= S_GREEN;
-                    color = bgra::GREEN, particle = 0xa8;
-                    break;
-                }
-                case 3484: // @note Paint Bucket - Aqua
-                {
-                    block.state[3] |= S_AQUA;
-                    color = bgra::BLUE | bgra::GREEN, particle = 0xa8;
-                    break;
-                }
-                case 3486: // @note Paint Bucket - Blue
-                {
-                    block.state[3] |= S_BLUE;
-                    color = bgra::BLUE, particle = 0xa8;
-                    break;
-                }
-                case 3488: // @note Paint Bucket - Purple
-                {
-                    block.state[3] |= S_PURPLE;
-                    color = bgra::BLUE | bgra::RED, particle = 0xa8; // @note blue + red
-                    break;
-                }
-                case 3490: // @note Paint Bucket - Charcoal
-                {
-                    block.state[3] |= S_CHARCOAL;
-                    color = bgra::BLUE | bgra::GREEN | bgra::RED | bgra::ALPHA, particle = 0xa8; // @note max will provide a pure black color. idk if growtopia is the same.
-                    break;
-                }
-                case 3492: // @note Paint Bucket - Vanish
-                {
-                    block.state[3] &= ~S_VANISH;
-                    color = bgra::BLUE | bgra::GREEN | bgra::RED, particle = 0xa8; // @todo get exact color. I just guessed T-T
-                }
-                case 3822: break; // Red Hair Dye
-                case 3824: break; // Green Hair Dye
-                case 3826: break; // Blue Hair Dye
-                default: return; // @note prevent taking the consumeable if nothing happended
-            }
-            if (particle > 0.0f)
-            {
-                send_particle_effect(event, {color, particle}, state.punch.by_32());
-            }
+            // @note paint buckets are now handled via registry, so this is just for non-registered items
             send_tile_update(event, std::move(state), block, *world);
-
             modify_item_inventory(event, ::slot(item->id, -1));
             pPeer->add_xp(event, 1);
             return;
         }
+        // ====================================================================
+        // MODE: WRENCHING (state.id == 32)
+        // ====================================================================
         else if (state.id == 32)
         {
             switch (item->type)
             {
                 case type::LOCK:
                 {
-                    if (is_tile_lock(item->id)) break; // @todo seperate area for 'range_lock'
-
+                    if (is_tile_lock(item->id)) break;
                     if (pPeer->user_id == world->owner)
                     {
                         send_varlist(event.peer, {
@@ -536,7 +384,6 @@ void tile_change(ENetEvent& event, state state)
                                 "add_checkbox|checkbox_disable_music|Disable Custom Music Blocks|{}\n"
                                 "add_text_input|tempo|Music BPM|100|3|\n"
                                 "add_checkbox|checkbox_disable_music_render|Make Custom Music Blocks invisible|0\n"
-                                //"add_smalltext|Your current home world is: JOLEIT|left|\n"           // @todo only show when peer has a set home world.
                                 "add_checkbox|checkbox_set_as_home_world|Set as Home World|0|\n"
                                 "add_text_input|minimum_entry_level|World Level: |{}|3|\n"
                                 "add_smalltext|Set minimum world entry level.|\n"
@@ -544,7 +391,10 @@ void tile_change(ENetEvent& event, state state)
                                 "add_button|changecat|`wCategory: None``|noflags|0|0|\n"
                                 "add_button|getKey|Get World Key|noflags|0|0|\n"
                                 "end_dialog|lock_edit|Cancel|OK|\n",
-                                item->raw_name, item->id, state.punch.x, state.punch.y, to_char(world->is_public), (world->lock_state & DISABLE_MUSIC) ? "1" : "0", world->minimum_entry_level
+                                item->raw_name, item->id, state.punch.x, state.punch.y,
+                                to_char(world->is_public),
+                                (world->lock_state & DISABLE_MUSIC) ? "1" : "0",
+                                world->minimum_entry_level
                             )
                         });
                     }
@@ -553,10 +403,10 @@ void tile_change(ENetEvent& event, state state)
                 case type::DOOR:
                 case type::PORTAL:
                 {
-                    std::string dest, id{};
+                    std::string dest, id;
                     for (::door& door : world->doors)
                         if (door.pos == state.punch) dest = door.dest, id = door.id;
-                        
+
                     send_varlist(event.peer, {
                         "OnDialogRequest",
                         std::format(
@@ -568,11 +418,10 @@ void tile_change(ENetEvent& event, state state)
                             "add_smalltext|Enter a Destination in this format: `2WORLDNAME:ID``|left|\n"
                             "add_smalltext|Leave `2WORLDNAME`` blank (:ID) to go to the door with `2ID`` in the `2Current World``.|left|\n"
                             "add_text_input|door_id|ID|{}|11|\n"
-                            "add_smalltext|Set a unique `2ID`` to target this door as a Destination from another!|left|\n"
                             "add_checkbox|checkbox_locked|Is open to public|1\n"
                             "embed_data|tilex|{}\n"
                             "embed_data|tiley|{}\n"
-                            "end_dialog|door_edit|Cancel|OK|", 
+                            "end_dialog|door_edit|Cancel|OK|",
                             item->raw_name, item->id, block.label, dest, id, state.punch.x, state.punch.y
                         )
                     });
@@ -590,7 +439,7 @@ void tile_change(ENetEvent& event, state state)
                             "add_text_input|sign_text||{}|128|\n"
                             "embed_data|tilex|{}\n"
                             "embed_data|tiley|{}\n"
-                            "end_dialog|sign_edit|Cancel|OK|", 
+                            "end_dialog|sign_edit|Cancel|OK|",
                             item->raw_name, item->id, block.label, state.punch.x, state.punch.y
                         )
                     });
@@ -606,15 +455,10 @@ void tile_change(ENetEvent& event, state state)
                             "add_checkbox|checkbox_public|Is open to public|{}\n"
                             "embed_data|tilex|{}\n"
                             "embed_data|tiley|{}\n"
-                            "end_dialog|gateway_edit|Cancel|OK|\n", 
+                            "end_dialog|gateway_edit|Cancel|OK|\n",
                             item->raw_name, item->id, to_char((block.state[2] & S_PUBLIC)), state.punch.x, state.punch.y
                         )
                     });
-                    break;
-                }
-                case type::DISPLAY_BLOCK:
-                {
-                    // @todo
                     break;
                 }
                 case type::VENDING_MACHINE:
@@ -636,12 +480,17 @@ void tile_change(ENetEvent& event, state state)
                     });
                     break;
                 }
+                case type::DISPLAY_BLOCK:
+                    break; // @todo
             }
-            return; // @note leave early else wrench will act as a block unlike fist which breaks. this is cause of state_visuals()
+            return;
         }
-        else // @note placing a block
+        // ====================================================================
+        // MODE: PLACING (any other held item)
+        // ====================================================================
+        else
         {
-            if (block.fg != 0) // @note placing something ontop of exisitng block
+            if (block.fg != 0)
             {
                 bool update_tile{};
                 switch (items[world->blocks[cord(state.punch.x, state.punch.y)].fg].type)
@@ -654,24 +503,21 @@ void tile_change(ENetEvent& event, state state)
                     }
                     case type::SEED:
                     {
-                        for (::item &item : items)
+                        for (::item &i : items)
                         {
-                            if ((item.splice[0] == state.id && item.splice[1] == block.fg) ||
-                                (item.splice[1] == state.id && item.splice[0] == block.fg) /* allow reverse splice combo */)
+                            if ((i.splice[0] == state.id && i.splice[1] == block.fg) ||
+                                (i.splice[1] == state.id && i.splice[0] == block.fg))
                             {
-                                auto splice0 = std::ranges::find(items, item.splice[0], &::item::id);
-                                auto splice1 = std::ranges::find(items, item.splice[1], &::item::id);
-
+                                auto splice0 = std::ranges::find(items, i.splice[0], &::item::id);
+                                auto splice1 = std::ranges::find(items, i.splice[1], &::item::id);
                                 send_varlist(event.peer, {
-                                    "OnTalkBubble", 
-                                    pPeer->netid, 
-                                    std::format("`w{}`` and `w{}`` have been spliced to make a `${} Tree``!", 
-                                        splice0->raw_name, splice1->raw_name, item.raw_name.substr(0, item.raw_name.length()-5/* seed*/)), // @todo this is hardcoded
-                                    0u,
-                                    1u
+                                    "OnTalkBubble", pPeer->netid,
+                                    std::format("`w{}`` and `w{}`` have been spliced to make a `${} Tree``!",
+                                        splice0->raw_name, splice1->raw_name, i.raw_name.substr(0, i.raw_name.length()-5)),
+                                    0u, 1u
                                 });
                                 block.tick = steady_clock::now();
-                                block.fg = item.id;
+                                block.fg = i.id;
                                 update_tile = true;
                                 break;
                             }
@@ -683,69 +529,68 @@ void tile_change(ENetEvent& event, state state)
                     send_tile_update(event, std::move(state), block, *world);
                 return;
             }
-            if (item->collision == collision::FULL)
-            {
-                if (state.punch == state.pos.by_32(true)) return; // @todo when moving avoid collision.
-            }
+
+            // ---- Collision check (via modular system) ----
+            if (!collision::can_place_at(item->collision, state.pos, state.punch))
+                return;
+
+            bool lock_visuals{}; // @note set if world lock was just placed
+
+            // ---- Type-based placement logic ----
             switch (item->type)
             {
                 case type::LOCK:
                 {
-                    if (is_tile_lock(item->id)) break; // @note seperate area for 'range_lock'
-
+                    if (is_tile_lock(item->id)) break;
                     if (!world->owner)
                     {
                         world->owner = pPeer->user_id;
                         lock_visuals = true;
-                        if (!pPeer->role) 
+                        if (!pPeer->role)
                         {
                             pPeer->prefix.front() = '2';
                             on::NameChanged(event);
                         }
-                        if (std::ranges::find(pPeer->my_worlds, world->name) == pPeer->my_worlds.end()) 
+                        if (std::ranges::find(pPeer->my_worlds, world->name) == pPeer->my_worlds.end())
                         {
                             std::ranges::rotate(pPeer->my_worlds, pPeer->my_worlds.begin() + 1);
                             pPeer->my_worlds.back() = world->name;
                         }
-                        std::string placed_message = std::format("`5[```w{}`` has been `$World Locked`` by {}`5]``", world->name, pPeer->growid);
-                        peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [&event, &pPeer, placed_message](ENetPeer& peer) 
+                        std::string msg = std::format("`5[```w{}`` has been `$World Locked`` by {}`5]``", world->name, pPeer->growid);
+                        peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [&](ENetPeer& peer)
                         {
-                            send_varlist(&peer, { "OnTalkBubble", pPeer->netid, placed_message });
-                            on::ConsoleMessage(&peer, placed_message);
+                            send_varlist(&peer, { "OnTalkBubble", pPeer->netid, msg });
+                            on::ConsoleMessage(&peer, msg);
                         });
                     }
                     else throw std::runtime_error("Only one `$World Lock`` can be placed in a world, you'd have to remove the other one first.");
                     break;
                 }
                 case type::ENTRANCE:
-                {
                     block.state[2] |= S_PUBLIC;
                     break;
-                }
                 case type::PROVIDER:
-                {
                     block.tick = steady_clock::now();
                     break;
-                }
                 case type::SEED:
-                {
                     block.state[2] |= 0x11;
                     block.tick = steady_clock::now();
                     break;
-                }
             }
             block.state[2] |= (pPeer->facing_left) ? S_LEFT : S_RIGHT;
             (item->type == type::BACKGROUND) ? block.bg = state.id : block.fg = state.id;
             pPeer->emplace(::slot(item->id, -1));
         }
-        state.netid = pPeer->netid; // @todo sometimes rgt has this as 0
-        state_visuals(*event.peer, std::move(state)); // finished.
-        if (lock_visuals) 
+
+        // ---- Finalize ----
+        state.netid = pPeer->netid;
+        state_visuals(*event.peer, std::move(state));
+        if (lock_visuals)
         {
             state_visuals(*event.peer, ::state{
-                .type = 0x0f, // @note PACKET_SEND_LOCK
-                .netid = world->owner, 
-                .peer_state = peer_state::S_EXTENDED, 
+                .type = 0x0f,
+                .netid = world->owner,
+                .peer_state = peer_state::S_EXTENDED,
                 .id = state.id,
                 .punch = state.punch
             });
@@ -753,10 +598,7 @@ void tile_change(ENetEvent& event, state state)
     }
     catch (const std::exception& exc)
     {
-        if (exc.what() && *exc.what()) 
-        {
+        if (exc.what() && *exc.what())
             send_varlist(event.peer, { "OnTalkBubble", pPeer->netid, exc.what(), 0u, 1u });
-        }
-        return;
     }
 }

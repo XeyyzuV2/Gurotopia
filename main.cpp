@@ -11,6 +11,7 @@
 #include "include/database/database.hpp" // @note mysql_connect()
 #include "include/database/database_config.hpp" // @note load_database_config(), gDatabase_config
 #include "include/automate/holiday.hpp" // @note holiday
+#include "include/items/init_behaviors.hpp" // @note item behavior registry
 #include <filesystem>
 #include <csignal>
 
@@ -57,6 +58,7 @@ int main()
     decode_items();      // @note reads items.dat into legible class members (id, item name, ect)
     parse_store();       // @todo thread loop this so the store can update without restarting server (stored in .\resource\store.txt)
     check_for_holiday(); // @note check for any holidays using local time (your VPS or local time) - @todo thread loop so it can change the holiday without restarting
+    register_item_behaviors(); // @note load item-specific handlers (modular registry)
 
     ENetEvent event{};
     while (!gSignal)

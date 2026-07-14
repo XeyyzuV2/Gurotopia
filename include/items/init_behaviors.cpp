@@ -198,6 +198,93 @@ item_action on_atm(item_context& ctx)
     return item_action::HANDLED;
 }
 
+// @note Provider items with generic item+2 drops (chicken, cow, coffee maker, sheep)
+item_action on_provider_drop_next(item_context& ctx)
+{
+    ::ransuu rng;
+    add_drop(ctx.event, ::slot(ctx.item->id + 2, rng[{1, 2}]), ctx.state.punch.by_32(), *ctx.world);
+    ctx.block->tick = steady_clock::now();
+    send_tile_update(ctx.event, std::move(ctx.state), *ctx.block, *ctx.world);
+    ctx.pPeer->add_xp(ctx.event, 1);
+    return item_action::HANDLED;
+}
+
+// @note 5116 — Tea set (drops item-2 instead of item+2)
+item_action on_provider_tea_set(item_context& ctx)
+{
+    ::ransuu rng;
+    add_drop(ctx.event, ::slot(ctx.item->id - 2, rng[{1, 2}]), ctx.state.punch.by_32(), *ctx.world);
+    ctx.block->tick = steady_clock::now();
+    send_tile_update(ctx.event, std::move(ctx.state), *ctx.block, *ctx.world);
+    ctx.pPeer->add_xp(ctx.event, 1);
+    return item_action::HANDLED;
+}
+
+// @note 2798 — Well (drops water bucket)
+item_action on_provider_well(item_context& ctx)
+{
+    ::ransuu rng;
+    add_drop(ctx.event, ::slot(822, rng[{1, 2}]), ctx.state.punch.by_32(), *ctx.world);
+    ctx.block->tick = steady_clock::now();
+    send_tile_update(ctx.event, std::move(ctx.state), *ctx.block, *ctx.world);
+    ctx.pPeer->add_xp(ctx.event, 1);
+    return item_action::HANDLED;
+}
+
+// @note 928 — Science Station (drops chemicals)
+item_action on_provider_science(item_context& ctx)
+{
+    ::ransuu rng;
+    short chemical =
+        (!rng[{0, 16}]) ? 918 : // P
+        (!rng[{0, 8}])  ? 920 : // B
+        (!rng[{0, 6}])  ? 924 : // Y
+        (!rng[{0, 4}])  ? 916 : // R
+        914;                      // G
+    add_drop(ctx.event, {chemical, 1}, ctx.state.punch.by_32(), *ctx.world);
+    ctx.block->tick = steady_clock::now();
+    send_tile_update(ctx.event, std::move(ctx.state), *ctx.block, *ctx.world);
+    ctx.pPeer->add_xp(ctx.event, 1);
+    return item_action::HANDLED;
+}
+
+// @note 456 — Dice (random block)
+item_action on_dice(item_context& ctx)
+{
+    ::ransuu rng;
+    u_char value = rng[{0, 5}];
+    auto random = std::ranges::find(ctx.world->random_blocks, ctx.state.punch, &::random_block::pos);
+    if (random == ctx.world->random_blocks.end())
+        ctx.world->random_blocks.emplace_back(::random_block{value, ctx.state.punch});
+    else
+        random->value = value;
+
+    // Apply damage value to visually change the block
+    ctx.state.type = (value << 24) | 0x000008;
+    ctx.state.id = 6;
+    ctx.state.netid = ctx.pPeer->netid;
+    state_visuals(*ctx.event.peer, std::move(ctx.state));
+    return item_action::HANDLED;
+}
+
+// @note 1300 — Roshambo (rock paper scissors)
+item_action on_roshambo(item_context& ctx)
+{
+    ::ransuu rng;
+    u_char value = rng[{1, 3}];
+    auto random = std::ranges::find(ctx.world->random_blocks, ctx.state.punch, &::random_block::pos);
+    if (random == ctx.world->random_blocks.end())
+        ctx.world->random_blocks.emplace_back(::random_block{value, ctx.state.punch});
+    else
+        random->value = value;
+
+    ctx.state.type = (value << 24) | 0x000008;
+    ctx.state.id = 6;
+    ctx.state.netid = ctx.pPeer->netid;
+    state_visuals(*ctx.event.peer, std::move(ctx.state));
+    return item_action::HANDLED;
+}
+
 } // anonymous namespace
 
 // ============================================================================
@@ -234,10 +321,17 @@ void register_item_behaviors()
 
     // --- Provider specials ---
     item_registry::register_item(1008, on_atm, "ATM");
+    item_registry::register_item(872,  on_provider_drop_next, "Chicken");
+    item_registry::register_item(866,  on_provider_drop_next, "Cow");
+    item_registry::register_item(1632, on_provider_drop_next, "Coffee Maker");
+    item_registry::register_item(3888, on_provider_drop_next, "Sheep");
+    item_registry::register_item(5116, on_provider_tea_set, "Tea Set");
+    item_registry::register_item(2798, on_provider_well, "Well");
+    item_registry::register_item(928,  on_provider_science, "Science Station");
 
-    // @todo: Register more items here as they are moved from tile_change.cpp.
-    // Example:
-    // item_registry::register_item(872, on_chicken_provider, "Chicken");
-    // item_registry::register_item(456, on_dice, "Dice");
-    // item_registry::register_item(1300, on_roshambo, "Roshambo");
+    // --- Random / Chance blocks ---
+    item_registry::register_item(456,  on_dice, "Dice");
+    item_registry::register_item(1300, on_roshambo, "Roshambo");
+
+    // @note: Add more items here. One line each, no core file edits needed.
 }

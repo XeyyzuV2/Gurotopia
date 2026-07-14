@@ -42,7 +42,7 @@ void tile_change(ENetEvent& event, state state)
             }
 
         // ---- Access check ----
-        if (!(item->cat & CAT_PUBLIC))
+        if (!(item->cat & static_cast<u_char>(item_category::CAT_PUBLIC)))
             if ((world->owner && !world->is_public && !pPeer->role) &&
                 (pPeer->user_id != world->owner && !std::ranges::contains(world->access, pPeer->user_id))) return;
 
@@ -261,7 +261,7 @@ void tile_change(ENetEvent& event, state state)
             }
 
             // ---- Property-based break behavior ----
-            if (has_category(*item, static_cast<item_category>(CAT_RETURN)))
+            if (has_category(*item, item_category::CAT_RETURN))
             {
                 int uid = add_object(event, ::slot(item->id, 1), state.pos, *world);
                 item_activate_object(event, ::state{.id = uid, .punch = state.punch});

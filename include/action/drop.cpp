@@ -8,7 +8,7 @@ void action::drop(ENetEvent& event, const std::string& header)
     
     auto item = std::ranges::find(items, atoi(itemID.c_str()), &::item::id);
 
-    if (item->cat == CAT_UNTRADEABLE)
+    if (item->cat & static_cast<u_char>(item_category::CAT_UNTRADEABLE))
     {
         send_varlist(event.peer, { "OnTextOverlay", "You can't drop that." });
         return;

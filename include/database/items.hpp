@@ -146,13 +146,9 @@ enum type : u_char {
     FRIEND_ENTRANCE = 0x8e,
 };
 
-enum cat : u_char {
-    CAT_RETURN =          02, // @note This item can't be destroyed - smashing it will return it to your backpack if you have room!
-    CAT_SUPRISING_FRUIT = 0x08, // @note A tree of this type can bear surprising fruit!
-    CAT_PUBLIC =          0x10, // @note This item is PUBLIC: Even if it's locked, anyone can smash it.
-    CAT_HOLIDAY =         0x40, // @note This item can only be created during WinterFest/Halloween.
-    CAT_UNTRADEABLE =     0x80  // @note This item cannot be dropped or traded.
-};
+// @note item category flags — now defined in items/properties.hpp as item_category.
+// The raw `cat` byte is still read from items.dat; use has_category() to check flags.
+#include "items/properties.hpp"
 
 #include <string>
 

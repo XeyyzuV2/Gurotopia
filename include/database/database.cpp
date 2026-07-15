@@ -2,6 +2,7 @@
 
 #include "database.hpp"
 #include "database_config.hpp"
+#include "world_db.hpp"
 
 MYSQL *db;
 std::mutex db_mutex;
@@ -49,6 +50,7 @@ void mysql_connect()
 
     // @note table creation + migration runs inside the same lock section
     create_table_if_not_exist();
+    init_world_database();
 }
 
 hStmt::hStmt(const std::string &query) : lock(db_mutex)

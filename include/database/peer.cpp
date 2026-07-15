@@ -6,6 +6,7 @@
 #include "on/CountryState.hpp"
 #include "commands/punch.hpp"
 #include "tools/string.hpp"
+#include "database/world_db.hpp"
 
 #include "peer.hpp"
 
@@ -170,6 +171,10 @@ std::vector<ENetPeer*> peers(const std::string &world, peer_condition condition,
 void safe_disconnect_peers(int code)
 {
     puts("killing gurotopia...");
+
+    // @note save all loaded worlds before shutdown
+    for (auto& w : worlds)
+        save_world(w);
 
     peers("", peer_condition::PEER_ALL, [](ENetPeer &p) { enet_peer_disconnect(&p, 0); });
     enet_host_flush(host);

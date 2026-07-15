@@ -8,6 +8,8 @@
 #include "commands/weather.hpp"
 #include "tools/ransuu.hpp"
 
+#include "database/world_db.hpp"
+
 #include "join_request.hpp"
 
 using namespace std::chrono;
@@ -24,10 +26,14 @@ void action::join_request(ENetEvent& event, const std::string& header, const std
         std::for_each(big_name.begin(), big_name.end(), [](char& c) { c = std::toupper(c); }); // @note start -> START
         
         auto it = std::ranges::find(worlds, big_name, &::world::name);
-        if (it == worlds.end()) 
+        if (it == worlds.end())
         {
             it = worlds.emplace(it, big_name);
-            generate_world(*it, big_name);
+            it->blocks.resize(100 * 60); // @note allocate tile array
+            load_world(*it);
+            // @note if DB had no data for this world, generate fresh
+            if (it->blocks.empty() || std::ranges::all_of(it->blocks, [](const block& b) { return b.fg == 0 && b.bg == 0; }))
+                generate_world(*it, big_name);
         }
         ::world &world = *it;
 

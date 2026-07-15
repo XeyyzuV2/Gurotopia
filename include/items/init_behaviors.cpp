@@ -39,8 +39,6 @@ namespace {
 // @brief 758 — Roulette Wheel
 item_action on_roulette_wheel(item_context& ctx)
 {
-    auto& ransuu = *(::ransuu*)nullptr; // will be replaced with actual instance
-    // @note static ransuu would be ideal, but the codebase uses stack-allocated ones
     ::ransuu rng;
     const u_char number = rng[{0, 36}];
     const char color = (number == 0) ? '2' : (rng[{0, 3}] < 2) ? 'b' : '4';

@@ -163,7 +163,7 @@ static void deserialize_world(world& w, const std::vector<u_char>& buf)
         b.hits[1] = read8();
         long long tick_ms = read64();
         if (tick_ms > 0)
-            b.tick = time_point<steady_clock>(milliseconds(tick_ms));
+            b.tick = steady_clock::time_point() + milliseconds(tick_ms);
         b.label = read_str();
     }
 

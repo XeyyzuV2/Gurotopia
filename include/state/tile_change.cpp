@@ -46,6 +46,8 @@ void tile_change(ENetEvent& event, state state)
             if ((world->owner && !world->is_public && !pPeer->role) &&
                 (pPeer->user_id != world->owner && !std::ranges::contains(world->access, pPeer->user_id))) return;
 
+        bool lock_visuals{}; // @note set if world lock was just placed
+
         // ====================================================================
         // MODE: PUNCHING (state.id == 18)
         // ====================================================================
@@ -491,8 +493,6 @@ void tile_change(ENetEvent& event, state state)
             // ---- Collision check (via modular system) ----
             if (!collision::can_place_at(item->collision, state.pos, state.punch))
                 return;
-
-            bool lock_visuals{}; // @note set if world lock was just placed
 
             // ---- Type-based placement logic ----
             switch (item->type)

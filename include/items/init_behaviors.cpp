@@ -285,6 +285,35 @@ item_action on_roshambo(item_context& ctx)
     return item_action::HANDLED;
 }
 
+// @note 392 (Heartstone), 3402 (GBC), 9350 (Super GBC) — love chest drops
+item_action on_love_chest(item_context& ctx)
+{
+    ::ransuu rng;
+    short reward =
+        (!rng[{0, 99}]) ? 1458 :  // GHC
+        (!rng[{0, 20}]) ? 362 :   // Angel Wings
+        (!rng[{0, 8}])  ? 366 :   // Heartbow
+        (!rng[{0, 8}])  ? 1470 :  // Ruby Necklace
+        (!rng[{0, 20}]) ? 2384 :  // Love Bug
+        (!rng[{0, 4}])  ? 2396 :  // Valensign
+        (!rng[{0, 10}]) ? 3388 :  // Heartbreaker Hammer
+        (!rng[{0, 10}]) ? 2390 :  // Teeny Angel Wings
+        (!rng[{0, 10}]) ? 3396 :  // Lovebird Pendant
+        (!rng[{0, 2}])  ? 3404 :  // Sour Lollipop
+        (!rng[{0, 4}])  ? 3406 :  // Sweet Lollipop
+        (!rng[{0, 2}])  ? 3408 :  // Pink Marble Arch
+        388;                        // Perfume
+
+    add_drop(ctx.event, ::slot(reward, (reward == 3408 || reward == 3404) ? 10 : 1), ctx.state.punch.by_32(), *ctx.world);
+    if (reward == 1458)
+    {
+        std::string message = std::format("msg|`4The Power of Love! `2{} found a `#Golden Heart Crystal`2 in a `#{}`2!", ctx.pPeer->growid, ctx.item->raw_name);
+        peers(ctx.pPeer->recent_worlds.back(), PEER_ALL, [message](ENetPeer &p) { send_action(p, "log", message.c_str()); });
+    }
+    if (++ctx.pPeer->gbc_pity % 100 == 0) modify_item_inventory(ctx.event, ::slot{9350, 1});
+    return item_action::HANDLED;
+}
+
 } // anonymous namespace
 
 // ============================================================================
@@ -332,6 +361,11 @@ void register_item_behaviors()
     // --- Random / Chance blocks ---
     item_registry::register_item(456,  on_dice, "Dice");
     item_registry::register_item(1300, on_roshambo, "Roshambo");
+
+    // --- Love Chests ---
+    item_registry::register_item(392,  on_love_chest, "Heartstone");
+    item_registry::register_item(3402, on_love_chest, "GBC");
+    item_registry::register_item(9350, on_love_chest, "Super GBC");
 
     // @note: Add more items here. One line each, no core file edits needed.
 }

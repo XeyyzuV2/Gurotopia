@@ -133,31 +133,13 @@ void tile_change(ENetEvent& event, state state)
                 {
                     if ((steady_clock::now() - block.tick) / 1s >= item->tick)
                     {
-                        // Generic provider: try item-id-specific via registry, fallback to item+2
+                        // @note provider items with custom behavior are handled
+                        // via the item registry (init_behaviors.cpp). If unregistered,
+                        // just reset timer so it produces again — no item-specific drop.
                         if (!item_registry::get_handler(item->id))
                         {
-                            switch (item->id)
-                            {
-                                case 872: case 866: case 1632: case 3888:
-                                    add_drop(event, ::slot(item->id+2, ransuu[{1, 2}]), state.punch.by_32(), *world);
-                                    break;
-                                case 5116:
-                                    add_drop(event, ::slot(item->id-2, ransuu[{1, 2}]), state.punch.by_32(), *world);
-                                    break;
-                                case 2798:
-                                    add_drop(event, ::slot(822, ransuu[{1, 2}]), state.punch.by_32(), *world);
-                                    break;
-                                case 928:
-                                {
-                                    short chemcial =
-                                        (!ransuu[{0, 16}]) ? 918 :
-                                        (!ransuu[{0, 8}])  ? 920 :
-                                        (!ransuu[{0, 6}])  ? 924 :
-                                        (!ransuu[{0, 4}])  ? 916 : 914;
-                                    add_drop(event, {chemcial, 1}, state.punch.by_32(), *world);
-                                    break;
-                                }
-                            }
+                            // Generic provider: attempt item+2 drop as default
+                            add_drop(event, ::slot(item->id + 2, ransuu[{1, 2}]), state.punch.by_32(), *world);
                         }
                         block.tick = steady_clock::now();
                         send_tile_update(event, std::move(state), block, *world);
@@ -228,33 +210,9 @@ void tile_change(ENetEvent& event, state state)
             block.state[2] = 0x00;
             block.state[3] &= ~S_VANISH;
 
-            // Special loot chests (registered via registry in future, keep for now)
-            if (item->id == 392 || item->id == 3402 || item->id == 9350)
-            {
-                short reward =
-                    (!ransuu[{0, 99}]) ? 1458 :
-                    (!ransuu[{0, 20}]) ? 362 :
-                    (!ransuu[{0, 8}])  ? 366 :
-                    (!ransuu[{0, 8}])  ? 1470 :
-                    (!ransuu[{0, 20}]) ? 2384 :
-                    (!ransuu[{0, 4}])  ? 2396 :
-                    (!ransuu[{0, 10}]) ? 3388 :
-                    (!ransuu[{0, 10}]) ? 2390 :
-                    (!ransuu[{0, 10}]) ? 3396 :
-                    (!ransuu[{0, 2}])  ? 3404 :
-                    (!ransuu[{0, 4}])  ? 3406 :
-                    (!ransuu[{0, 2}])  ? 3408 :
-                    388;
+            // @note love chests (392/3402/9350) handled via item registry now
 
-                add_drop(event, ::slot(reward, (reward == 3408 || reward == 3404) ? 10 : 1), state.punch.by_32(), *world);
-                if (reward == 1458)
-                {
-                    std::string message = std::format("msg|`4The Power of Love! `2{} found a `#Golden Heart Crystal`2 in a `#{}`2!", pPeer->growid, item->raw_name);
-                    peers(pPeer->recent_worlds.back(), PEER_ALL, [message](ENetPeer &p) { send_action(p, "log", message.c_str()); });
-                }
-                if (++pPeer->gbc_pity % 100 == 0) modify_item_inventory(event, ::slot{9350, 1});
-            }
-            else if (item->type == type::LOCK && !is_tile_lock(item->id))
+            if (item->type == type::LOCK && !is_tile_lock(item->id))
             {
                 if (!pPeer->role) { pPeer->prefix.front() = 'w'; on::NameChanged(event); }
                 world->owner = 0;

@@ -23,7 +23,7 @@ extern void send_particle_effect(ENetEvent &event, const ::pos& pos, ::pos speed
 extern void item_activate_object(ENetEvent& event, ::state state);
 extern u_short modify_item_inventory(ENetEvent& event, ::slot slot);
 extern int  add_object(ENetEvent& event, ::slot slot, const ::pos& pos, ::world &world);
-extern int  get_weather_id(int id);
+extern int  get_weather_id(u_int id);
 
 // ============================================================================
 // ITEM BEHAVIOR HANDLERS

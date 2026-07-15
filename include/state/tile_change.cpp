@@ -99,6 +99,10 @@ void tile_change(ENetEvent& event, state state)
                     case item_action::CONSUME:
                         modify_item_inventory(event, ::slot(item->id, -1));
                         return;
+                    case item_action::RETURN_ITEM:
+                        modify_item_inventory(event, ::slot(item->id, -1));
+                        registry_handled = true;
+                        break;
                     default:
                         break; // NONE = continue
                 }
@@ -491,7 +495,7 @@ void tile_change(ENetEvent& event, state state)
             }
 
             // ---- Collision check (via modular system) ----
-            if (!collision::can_place_at(item->collision, state.pos, state.punch))
+            if (!collision_check::can_place_at(item->collision, state.pos, state.punch))
                 return;
 
             // ---- Type-based placement logic ----

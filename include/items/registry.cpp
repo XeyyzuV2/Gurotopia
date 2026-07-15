@@ -1,7 +1,5 @@
 #include "pch.hpp"
 #include "items/registry.hpp"
-#include "on/ConsoleMessage.hpp"
-#include "tools/ransuu.hpp"
 
 std::unordered_map<u_short, item_registry::entry>& item_registry::table()
 {

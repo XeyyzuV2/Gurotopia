@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 // @note World persistence — save/load world state to MariaDB.
 // Adds a `world_state` table storing serialized block arrays + metadata.
 

@@ -227,6 +227,7 @@ static void deserialize_world(world& w, const std::vector<u_char>& buf)
 void save_world(const world& w)
 {
     auto data = serialize_world(w);
+    std::string data_str(reinterpret_cast<const char*>(data.data()), data.size());
 
     hStmt stmt("INSERT INTO world_state (name, owner, data) VALUES (?, ?, ?) "
                "ON DUPLICATE KEY UPDATE owner = VALUES(owner), data = VALUES(data), updated_at = NOW()");
@@ -234,7 +235,7 @@ void save_world(const world& w)
     MYSQL_BIND params[3] = {
         make_bind_in(w.name),
         make_bind_in(w.owner),
-        make_bind_in(std::string(reinterpret_cast<const char*>(data.data()), data.size()))
+        make_bind_in(data_str)
     };
     mysql_stmt_bind_param(stmt.pStmt, params);
     mysql_stmt_execute(stmt.pStmt);

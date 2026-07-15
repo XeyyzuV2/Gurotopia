@@ -11,7 +11,7 @@
 //   if (!collision::can_place_at(item->collision, player_pos, target_pos))
 //       return; // blocked
 
-namespace collision {
+namespace collision_check {
 
 // @brief Can the player place a block at target_pos?
 // Returns false if collision would prevent placement.

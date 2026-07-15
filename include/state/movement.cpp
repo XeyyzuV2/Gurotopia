@@ -23,15 +23,15 @@ void movement(ENetEvent& event, state state)
             if (target_x >= 0 && target_x < 100 && target_y >= 0 && target_y < 60)
             {
                 int fg_id = world->blocks[cord(target_x, target_y)].fg;
-                if (fg_id != 0 && fg_id < items.size())
+                if (fg_id != 0 && static_cast<std::size_t>(fg_id) < items.size())
                 {
                     auto& item = items[fg_id];
-                    collision::movement_rule rule = collision::get_movement_rule(
+                    collision_check::movement_rule rule = collision_check::get_movement_rule(
                         static_cast<::collision>(item.collision)
                     );
 
                     // Solid blocks block movement entirely
-                    if (rule == collision::movement_rule::BLOCK)
+                    if (rule == collision_check::movement_rule::BLOCK)
                     {
                         // @note block movement — client already handles most of this,
                         // but we reject the position update to prevent speedhack teleport
@@ -43,7 +43,7 @@ void movement(ENetEvent& event, state state)
                     }
 
                     // Platform check — can't fall through platforms
-                    if (rule == collision::movement_rule::PLATFORM)
+                    if (rule == collision_check::movement_rule::PLATFORM)
                     {
                         // If player is above the platform and moving down, block it
                         bool is_falling = !(state.peer_state & peer_state::S_JUMP) &&

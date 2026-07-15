@@ -18,7 +18,7 @@ struct item_context {
     class block* block;
     const class item* item;
     struct state state;
-    struct ENetEvent& event;
+    ENetEvent& event;
 };
 
 // @brief Result returned by an item behavior handler.

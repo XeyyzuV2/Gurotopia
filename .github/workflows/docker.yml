@@ -1,7 +1,9 @@
 name: Dockerfile
 on:
   push:
+    branches: [ master, my-version ]
   pull_request:
+    branches: [ master, my-version ]
   workflow_dispatch:
 jobs:
   build:

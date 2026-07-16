@@ -3,11 +3,14 @@
         {
             "label": "Build Gurotopia",
             "type": "cppbuild",
-            "command": "c:/msys64/usr/bin/bash.exe",
+            "command": "c:/msys64/ucrt64.exe",
             "args": [
                 "-c",
-                "export PATH=\"$PATH:/c/msys64/ucrt64/bin:/c/msys64/usr/bin\" && make -j$(nproc)"
+                "cd \"$(pwd)\" && make -j$(nproc)"
             ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -16,11 +19,14 @@
         {
             "label": "Clean Gurotopia",
             "type": "cppbuild",
-            "command": "c:/msys64/usr/bin/bash.exe",
+            "command": "c:/msys64/ucrt64.exe",
             "args": [
                 "-c",
-                "export PATH=\"$PATH:/c/msys64/usr/bin\" && make clean"
-            ]
+                "cd \"$(pwd)\" && make clean"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
         }
     ]
 }
